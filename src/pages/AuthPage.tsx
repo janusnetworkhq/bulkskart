@@ -311,26 +311,11 @@ export default function AuthPage() {
     return '/dashboard/buyer';
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doLogin = async (email: string, pw: string) => {
     setError('');
-    const cleanEmail = loginEmail.trim().toLowerCase();
-    if (!cleanEmail) {
-      const msg = 'Please enter your email address.';
-      setError(msg);
-      toast.error(msg);
-      return;
-    }
-    if (!loginPw) {
-      const msg = 'Please enter your password.';
-      setError(msg);
-      toast.error(msg);
-      return;
-    }
-
     setLoading(true);
     try {
-      const { error: err } = await signIn(cleanEmail, loginPw);
+      const { error: err } = await signIn(email.trim().toLowerCase(), pw);
       if (err) {
         setError(err);
         toast.error(err);
@@ -352,6 +337,25 @@ export default function AuthPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = loginEmail.trim().toLowerCase();
+    if (!cleanEmail) {
+      const msg = 'Please enter your email address.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (!loginPw) {
+      const msg = 'Please enter your password.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    await doLogin(cleanEmail, loginPw);
   };
 
   const handleBuyerRegister = async (e: React.FormEvent) => {
@@ -683,30 +687,44 @@ export default function AuthPage() {
 
                 {/* Quick test accounts helper */}
                 <div className="mt-4 pt-3 border-t border-border/60">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    Quick Demo Logins (Click to fill)
-                  </p>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Quick Demo Accounts (1-Click Sign In)
+                    </p>
+                    <span className="text-[10px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">
+                      Verified Credentials
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => autofillDemoAccount('admin@bulkskart.com', 'AdminBulkSkart2026!#Safe')}
-                      className="text-[11px] px-2 py-1.5 bg-muted/80 hover:bg-primary/10 border border-border rounded-lg text-foreground font-medium text-center transition-colors truncate"
+                      disabled={loading}
+                      onClick={() => doLogin('admin@bulkskart.com', 'AdminBulkSkart2026!#Safe')}
+                      className="text-[11px] p-2 bg-muted/80 hover:bg-primary hover:text-white border border-border rounded-lg text-foreground font-semibold text-center transition-all shadow-xs flex flex-col items-center gap-0.5 cursor-pointer disabled:opacity-50"
                     >
-                      🛡️ Admin
+                      <span className="text-base">🛡️</span>
+                      <span className="font-bold">Admin</span>
+                      <span className="text-[9px] opacity-80 font-normal">Control Panel</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => autofillDemoAccount('buyer@bulkskart.com', 'BuyerBulkSkart2026!#')}
-                      className="text-[11px] px-2 py-1.5 bg-muted/80 hover:bg-primary/10 border border-border rounded-lg text-foreground font-medium text-center transition-colors truncate"
+                      disabled={loading}
+                      onClick={() => doLogin('buyer@bulkskart.com', 'BuyerBulkSkart2026!#')}
+                      className="text-[11px] p-2 bg-muted/80 hover:bg-primary hover:text-white border border-border rounded-lg text-foreground font-semibold text-center transition-all shadow-xs flex flex-col items-center gap-0.5 cursor-pointer disabled:opacity-50"
                     >
-                      💼 Buyer
+                      <span className="text-base">💼</span>
+                      <span className="font-bold">Buyer</span>
+                      <span className="text-[9px] opacity-80 font-normal">Post RFQs</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => autofillDemoAccount('supplier@bulkskart.com', 'SupplierBulkSkart2026!#')}
-                      className="text-[11px] px-2 py-1.5 bg-muted/80 hover:bg-primary/10 border border-border rounded-lg text-foreground font-medium text-center transition-colors truncate"
+                      disabled={loading}
+                      onClick={() => doLogin('supplier@bulkskart.com', 'SupplierBulkSkart2026!#')}
+                      className="text-[11px] p-2 bg-muted/80 hover:bg-primary hover:text-white border border-border rounded-lg text-foreground font-semibold text-center transition-all shadow-xs flex flex-col items-center gap-0.5 cursor-pointer disabled:opacity-50"
                     >
-                      🏭 Supplier
+                      <span className="text-base">🏭</span>
+                      <span className="font-bold">Supplier</span>
+                      <span className="text-[9px] opacity-80 font-normal">Quotes & Products</span>
                     </button>
                   </div>
                 </div>
