@@ -116,7 +116,9 @@ export default function Header() {
       setMobileOpen(false);
       await signOut();
       toast.success('Signed out successfully');
-      navigate('/');
+      if (location.pathname !== '/') {
+        navigate('/');
+      }
     } catch (err) {
       console.error('Sign out error:', err);
       toast.error('Failed to sign out. Please try again.');
@@ -143,7 +145,7 @@ export default function Header() {
         </Link>
 
         {/* Search bar — desktop */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-[520px] items-center bg-muted border border-border rounded-lg h-9 px-3 gap-2 focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
+        <form onSubmit={handleSearch} className="hidden md:flex flex-1 min-w-[140px] max-w-[420px] lg:max-w-[500px] items-center bg-muted border border-border rounded-lg h-9 px-3 gap-2 focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/30 transition-all">
           <Search className="w-4 h-4 text-muted-foreground shrink-0" />
           <input
             ref={searchInputRef}
@@ -451,7 +453,6 @@ export default function Header() {
                     e.preventDefault();
                     handleSignOut();
                   }}
-                  onClick={handleSignOut}
                   disabled={isSigningOut}
                   className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer font-medium hover:bg-destructive/10"
                 >
@@ -462,11 +463,11 @@ export default function Header() {
             </DropdownMenu>
           ) : (
             <>
-              <Link to="/login">
-                <Button size="sm" variant="ghost" className="text-[13px] font-bold text-foreground hover:text-primary hover:bg-muted h-8 px-3.5 rounded">Sign In</Button>
+              <Link to="/login" className="shrink-0">
+                <Button size="sm" variant="ghost" className="text-[13px] font-bold text-foreground hover:text-primary hover:bg-muted h-8 px-3 rounded whitespace-nowrap">Sign In</Button>
               </Link>
-              <Link to="/register">
-                <Button size="sm" className="bg-[#FF5A00] text-white hover:bg-[#e04e00] h-8 px-3.5 text-[13px] font-bold rounded shadow-[0_2px_0_#922f00]">Create Free Account</Button>
+              <Link to="/register" className="shrink-0">
+                <Button size="sm" className="bg-[#FF5A00] text-white hover:bg-[#e04e00] h-8 px-3 text-[13px] font-bold rounded shadow-[0_2px_0_#922f00] whitespace-nowrap">Create Free Account</Button>
               </Link>
             </>
           )}

@@ -15,7 +15,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string, role: 'buyer' | 'supplier') => Promise<{ error: string | null; user?: User | null }>;
   signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (targetUserId?: string) => Promise<void>;
   refreshSubscription: () => Promise<void>;
 }
 
@@ -104,8 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+  const refreshProfile = async (targetUserId?: string) => {
+    const uid = targetUserId || user?.id;
+    if (uid) {
+      await fetchProfile(uid);
+    }
   };
 
   useEffect(() => {
@@ -347,6 +350,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsPaidSubscriber(false);
       setUser(null);
       setSession(null);
+      try {
+        window.dispatchEvent(new Event('auth:signed_out'));
+      } catch {
+        // ignore
+      }
     }
   };
 

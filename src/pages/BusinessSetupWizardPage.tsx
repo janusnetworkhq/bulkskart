@@ -116,83 +116,110 @@ export default function BusinessSetupWizardPage() {
     const loadData = async () => {
       setLoading(true);
       try {
+        // Direct query to guarantee exact logged-in user profile without crosstalk
+        const { data: directProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const activeProfile = directProfile || profile;
+
         // Prefill personal details from user & profile
         setPersonal(prev => ({
           ...prev,
-          fullName: profile?.full_name || '',
+          fullName: activeProfile?.full_name || '',
           email: user.email || '',
-          phone: profile?.phone || '',
-          whatsappNumber: (profile as any)?.whatsapp_number || '',
-          country: (profile as any)?.country || 'India',
-          state: (profile as any)?.state || '',
-          city: (profile as any)?.city || '',
+          phone: activeProfile?.phone || '',
+          whatsappNumber: (activeProfile as any)?.whatsapp_number || '',
+          country: (activeProfile as any)?.country || 'India',
+          state: (activeProfile as any)?.state || '',
+          city: (activeProfile as any)?.city || '',
         }));
 
-        if (profile?.role === 'buyer') {
+        if (activeProfile?.role === 'buyer') {
           setAccountType('Buyer');
         }
 
+        // Direct query company owned specifically by this user to eliminate any cross-account leakage
+        const { data: directCompany } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('owner_id', user.id)
+          .maybeSingle();
+
+        const targetCompany = directCompany || (company?.owner_id === user.id ? company : null);
+
+        // Direct query buyer profile specifically for this user
+        const { data: directBuyerProfile } = await supabase
+          .from('buyer_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const targetBuyerProfile = directBuyerProfile || (buyerProfile?.user_id === user.id ? buyerProfile : null);
+
         // Check if company exists
-        if (company) {
-          setAccountType(company.business_type || 'Manufacturer');
+        if (targetCompany) {
+          setAccountType(targetCompany.business_type || 'Manufacturer');
           setBusiness({
-            legalName: company.company_name || '',
-            brandName: (company as any).brand_name || '',
-            businessType: company.business_type || 'Manufacturer',
-            registrationNumber: (company as any).registration_number || '',
-            gstNumber: company.gst_number || '',
-            panNumber: (company as any).pan_number || '',
-            iecNumber: company.iec_number || '',
-            address: company.address || '',
-            pincode: company.pincode || '',
-            website: company.website || '',
-            yearEstablished: company.year_established ? String(company.year_established) : '',
-            description: company.description || '',
+            legalName: targetCompany.company_name || '',
+            brandName: (targetCompany as any).brand_name || '',
+            businessType: targetCompany.business_type || 'Manufacturer',
+            registrationNumber: (targetCompany as any).registration_number || '',
+            gstNumber: targetCompany.gst_number || '',
+            panNumber: (targetCompany as any).pan_number || '',
+            iecNumber: targetCompany.iec_number || '',
+            address: targetCompany.address || '',
+            pincode: targetCompany.pincode || '',
+            website: targetCompany.website || '',
+            yearEstablished: targetCompany.year_established ? String(targetCompany.year_established) : '',
+            description: targetCompany.description || '',
           });
-          setSelectedCategories((company as any).product_categories || []);
-          setProductsSupplied(company.key_products || []);
-          setMoq(company.moq_policy || '');
-          setCapacity(company.production_capacity || '');
-          setTradeType((company as any).trade_type || 'both');
-          setCountriesServed(company.export_destinations || ['India']);
-          setPaymentTerms(company.payment_terms || ['T/T (Telegraphic Transfer)']);
-          if ((company as any).shipping_capabilities) {
-            setShippingCapabilities([(company as any).shipping_capabilities]);
+          setSelectedCategories((targetCompany as any).product_categories || []);
+          setProductsSupplied(targetCompany.key_products || []);
+          setMoq(targetCompany.moq_policy || '');
+          setCapacity(targetCompany.production_capacity || '');
+          setTradeType((targetCompany as any).trade_type || 'both');
+          setCountriesServed(targetCompany.export_destinations || ['India']);
+          setPaymentTerms(targetCompany.payment_terms || ['T/T (Telegraphic Transfer)']);
+          if ((targetCompany as any).shipping_capabilities) {
+            setShippingCapabilities([(targetCompany as any).shipping_capabilities]);
           }
           setDocs({
-            gstDocUrl: company.gst_doc_url || undefined,
-            iecDocUrl: company.iec_doc_url || undefined,
-            panDocUrl: (company as any).pan_doc_url || undefined,
-            regDocUrl: company.reg_doc_url || undefined,
+            gstDocUrl: targetCompany.gst_doc_url || undefined,
+            iecDocUrl: targetCompany.iec_doc_url || undefined,
+            panDocUrl: (targetCompany as any).pan_doc_url || undefined,
+            regDocUrl: targetCompany.reg_doc_url || undefined,
           });
-          setVerificationStatus(company.verification_status as any || 'unverified');
-          if ((company as any).onboarding_step && (company as any).onboarding_step <= 5) {
-            setCurrentStep((company as any).onboarding_step);
+          setVerificationStatus(targetCompany.verification_status as any || 'unverified');
+          if ((targetCompany as any).onboarding_step && (targetCompany as any).onboarding_step <= 5) {
+            setCurrentStep((targetCompany as any).onboarding_step);
           }
-        } else if (buyerProfile) {
+        } else if (targetBuyerProfile) {
           setAccountType('Buyer');
           setBusiness(prev => ({
             ...prev,
-            legalName: buyerProfile.company_name || '',
-            brandName: (buyerProfile as any).brand_name || '',
-            businessType: buyerProfile.business_type || 'Wholesaler / Distributor',
-            registrationNumber: (buyerProfile as any).registration_number || '',
-            gstNumber: buyerProfile.gst_number || '',
-            panNumber: (buyerProfile as any).pan_number || '',
-            address: buyerProfile.address || '',
-            pincode: buyerProfile.pincode || '',
-            description: (buyerProfile as any).description || '',
+            legalName: targetBuyerProfile.company_name || '',
+            brandName: (targetBuyerProfile as any).brand_name || '',
+            businessType: targetBuyerProfile.business_type || 'Wholesaler / Distributor',
+            registrationNumber: (targetBuyerProfile as any).registration_number || '',
+            gstNumber: targetBuyerProfile.gst_number || '',
+            panNumber: (targetBuyerProfile as any).pan_number || '',
+            address: targetBuyerProfile.address || '',
+            pincode: targetBuyerProfile.pincode || '',
+            description: (targetBuyerProfile as any).description || '',
           }));
-          setSelectedCategories((buyerProfile as any).product_categories || []);
-          setProductsSupplied((buyerProfile as any).target_products || []);
+          setSelectedCategories((targetBuyerProfile as any).product_categories || []);
+          setProductsSupplied((targetBuyerProfile as any).target_products || []);
           setDocs({
-            gstDocUrl: (buyerProfile as any).gst_doc_url || undefined,
-            panDocUrl: (buyerProfile as any).pan_doc_url || undefined,
-            regDocUrl: (buyerProfile as any).reg_doc_url || undefined,
+            gstDocUrl: (targetBuyerProfile as any).gst_doc_url || undefined,
+            panDocUrl: (targetBuyerProfile as any).pan_doc_url || undefined,
+            regDocUrl: (targetBuyerProfile as any).reg_doc_url || undefined,
           });
-          setVerificationStatus((buyerProfile as any).verification_status as any || 'unverified');
-          if ((buyerProfile as any).onboarding_step && (buyerProfile as any).onboarding_step <= 5) {
-            setCurrentStep((buyerProfile as any).onboarding_step);
+          setVerificationStatus((targetBuyerProfile as any).verification_status as any || 'unverified');
+          if ((targetBuyerProfile as any).onboarding_step && (targetBuyerProfile as any).onboarding_step <= 5) {
+            setCurrentStep((targetBuyerProfile as any).onboarding_step);
           }
         }
       } catch (err) {

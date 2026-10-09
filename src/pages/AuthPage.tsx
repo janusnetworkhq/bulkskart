@@ -316,34 +316,70 @@ export default function AuthPage() {
     setError('');
     const cleanEmail = loginEmail.trim().toLowerCase();
     if (!cleanEmail) {
-      setError('Please enter your email address.');
+      const msg = 'Please enter your email address.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     if (!loginPw) {
-      setError('Please enter your password.');
+      const msg = 'Please enter your password.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     setLoading(true);
-    const { error: err } = await signIn(cleanEmail, loginPw);
-    setLoading(false);
+    try {
+      const { error: err } = await signIn(cleanEmail, loginPw);
+      if (err) {
+        setError(err);
+        toast.error(err);
+        return;
+      }
 
-    if (err) {
-      setError(err);
-      toast.error(err);
-      return;
+      toast.success('Signed in successfully!');
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        navigate('/');
+        return;
+      }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+      navigate(getTargetRedirect(profile?.role));
+    } catch (err: any) {
+      const msg = err?.message || 'Login failed. Please check your credentials and try again.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
-
-    toast.success('Signed in successfully!');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-    navigate(getTargetRedirect(profile?.role));
   };
 
   const handleBuyerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanName = buyerData.fullName.trim();
+    if (!cleanName) {
+      const msg = 'Please enter your full name.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    const cleanEmail = buyerData.email.trim().toLowerCase();
+    if (!cleanEmail) {
+      const msg = 'Please enter your email address.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (buyerData.password.length < 8) {
+      const msg = 'Password must be at least 8 characters long.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
 
     if (!buyerAgreed) {
       const msg = 'Please accept the User Agreement and Privacy Policy to create an account.';
@@ -352,52 +388,48 @@ export default function AuthPage() {
       return;
     }
 
-    const cleanEmail = buyerData.email.trim().toLowerCase();
-    if (!cleanEmail) {
-      setError('Please enter your email address.');
-      return;
-    }
-    if (buyerData.password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
-
     setLoading(true);
-    const { error: err, user: registeredUser } = await signUp(cleanEmail, buyerData.password, buyerData.fullName.trim(), 'buyer');
+    try {
+      const { error: err, user: registeredUser } = await signUp(cleanEmail, buyerData.password, cleanName, 'buyer');
 
-    if (err) {
-      setLoading(false);
-      if (err.toLowerCase().includes('already exists') || err.toLowerCase().includes('already registered')) {
-        setLoginEmail(cleanEmail);
-        setActiveTab('login');
-        setError('An account with this email already exists. Please enter your password to sign in.');
-        toast.info('Account already exists! Switched to Login tab.');
+      if (err) {
+        if (err.toLowerCase().includes('already exists') || err.toLowerCase().includes('already registered')) {
+          setLoginEmail(cleanEmail);
+          setActiveTab('login');
+          setError('An account with this email already exists. Please enter your password to sign in.');
+          toast.info('Account already exists! Switched to Login tab.');
+          return;
+        }
+        setError(err);
+        toast.error(err);
         return;
       }
-      setError(err);
-      toast.error(err);
-      return;
-    }
 
-    const activeUser = registeredUser || (await supabase.auth.getUser()).data.user;
-    if (activeUser) {
-      try {
-        await supabase.from('buyer_profiles').upsert({
-          user_id: activeUser.id,
-          company_name: buyerData.companyName?.trim() || null,
-          city: buyerData.city?.trim() || null,
-          country: buyerData.country,
-        });
-      } catch {
-        // silent
+      const activeUser = registeredUser || (await supabase.auth.getUser()).data.user;
+      if (activeUser) {
+        try {
+          await supabase.from('buyer_profiles').upsert({
+            user_id: activeUser.id,
+            company_name: buyerData.companyName?.trim() || null,
+            city: buyerData.city?.trim() || null,
+            country: buyerData.country,
+          });
+        } catch {
+          // silent
+        }
+        await refreshProfile(activeUser.id);
       }
-      await refreshProfile();
-    }
 
-    setLoading(false);
-    toast.success('Account created! Welcome to BulkSkart.');
-    trackSignUp('buyer');
-    navigate(getTargetRedirect('buyer'));
+      toast.success('Buyer account created! Welcome to BulkSkart.');
+      trackSignUp('buyer');
+      navigate(getTargetRedirect('buyer'));
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to create buyer account. Please try again.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const uploadDoc = async (file: File, userId: string, label: string): Promise<string | null> => {
@@ -417,8 +449,9 @@ export default function AuthPage() {
     e.preventDefault();
     setError('');
 
-    if (!supplierAgreed) {
-      const msg = 'Please accept the User Agreement and Privacy Policy to register as a supplier.';
+    const cleanName = supplierData.fullName.trim();
+    if (!cleanName) {
+      const msg = 'Please enter your full name.';
       setError(msg);
       toast.error(msg);
       return;
@@ -426,82 +459,103 @@ export default function AuthPage() {
 
     const cleanEmail = supplierData.email.trim().toLowerCase();
     if (!cleanEmail) {
-      setError('Please enter your business email address.');
+      const msg = 'Please enter your business email address.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
+
     if (supplierData.password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      const msg = 'Password must be at least 8 characters long.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
+
     if (!supplierData.companyName.trim()) {
-      setError('Please enter your company or factory name.');
+      const msg = 'Please enter your company or factory name.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (!supplierAgreed) {
+      const msg = 'Please accept the User Agreement and Privacy Policy to register as a supplier.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     setLoading(true);
-    const { error: err, user: registeredUser } = await signUp(cleanEmail, supplierData.password, supplierData.fullName.trim(), 'supplier');
+    try {
+      const { error: err, user: registeredUser } = await signUp(cleanEmail, supplierData.password, cleanName, 'supplier');
 
-    if (err) {
-      setLoading(false);
-      if (err.toLowerCase().includes('already exists') || err.toLowerCase().includes('already registered')) {
-        setLoginEmail(cleanEmail);
-        setActiveTab('login');
-        setError('An account with this email already exists. Please enter your password to sign in.');
-        toast.info('Account already exists! Switched to Login tab.');
+      if (err) {
+        if (err.toLowerCase().includes('already exists') || err.toLowerCase().includes('already registered')) {
+          setLoginEmail(cleanEmail);
+          setActiveTab('login');
+          setError('An account with this email already exists. Please enter your password to sign in.');
+          toast.info('Account already exists! Switched to Login tab.');
+          return;
+        }
+        setError(err);
+        toast.error(err);
         return;
       }
-      setError(err);
-      toast.error(err);
-      return;
-    }
 
-    // Get newly authenticated user
-    const activeUser = registeredUser || (await supabase.auth.getUser()).data.user;
-    if (activeUser) {
-      let gstUrl: string | null = null, iecUrl: string | null = null, regUrl: string | null = null;
-      if (gstDoc) gstUrl = await uploadDoc(gstDoc, activeUser.id, 'gst');
-      if (iecDoc) iecUrl = await uploadDoc(iecDoc, activeUser.id, 'iec');
-      if (regDoc) regUrl = await uploadDoc(regDoc, activeUser.id, 'reg');
+      // Get newly authenticated user
+      const activeUser = registeredUser || (await supabase.auth.getUser()).data.user;
+      if (activeUser) {
+        let gstUrl: string | null = null, iecUrl: string | null = null, regUrl: string | null = null;
+        if (gstDoc) gstUrl = await uploadDoc(gstDoc, activeUser.id, 'gst');
+        if (iecDoc) iecUrl = await uploadDoc(iecDoc, activeUser.id, 'iec');
+        if (regDoc) regUrl = await uploadDoc(regDoc, activeUser.id, 'reg');
 
-      const newCompanyPayload = {
-        owner_id: activeUser.id,
-        company_name: supplierData.companyName.trim(),
-        slug: generateSlug(supplierData.companyName),
-        gst_number: supplierData.gst?.trim() || null,
-        iec_number: supplierData.iec?.trim() || null,
-        business_type: supplierData.businessType || null,
-        city: supplierData.city?.trim() || null,
-        state: supplierData.state?.trim() || null,
-        country: supplierData.country,
-        verification_status: (gstDoc || iecDoc || regDoc) ? 'pending' : 'unverified',
-        gst_doc_url: gstUrl,
-        iec_doc_url: iecUrl,
-        reg_doc_url: regUrl,
-      };
+        const newCompanyPayload = {
+          owner_id: activeUser.id,
+          company_name: supplierData.companyName.trim(),
+          slug: generateSlug(supplierData.companyName),
+          gst_number: supplierData.gst?.trim() || null,
+          iec_number: supplierData.iec?.trim() || null,
+          business_type: supplierData.businessType || null,
+          city: supplierData.city?.trim() || null,
+          state: supplierData.state?.trim() || null,
+          country: supplierData.country,
+          verification_status: (gstDoc || iecDoc || regDoc) ? 'pending' : 'unverified',
+          gst_doc_url: gstUrl,
+          iec_doc_url: iecUrl,
+          reg_doc_url: regUrl,
+        };
 
-      try {
-        const { data: newCo } = await supabase
-          .from('companies')
-          .insert(newCompanyPayload)
-          .select('id')
-          .maybeSingle();
+        try {
+          const { data: newCo } = await supabase
+            .from('companies')
+            .insert(newCompanyPayload)
+            .select('id')
+            .maybeSingle();
 
-        if (newCo?.id) {
-          import('@/lib/api').then(({ triggerMatchNewManufacturer }) =>
-            triggerMatchNewManufacturer(newCo.id)
-          );
+          if (newCo?.id) {
+            import('@/lib/api').then(({ triggerMatchNewManufacturer }) =>
+              triggerMatchNewManufacturer(newCo.id)
+            );
+          }
+        } catch (compErr) {
+          console.warn('Company insert notice:', compErr);
         }
-      } catch (compErr) {
-        console.warn('Company insert notice:', compErr);
+
+        await refreshProfile(activeUser.id);
       }
 
-      await refreshProfile();
+      toast.success('Supplier account created! Please complete your business profile.');
+      trackSignUp('supplier');
+      navigate('/business-setup');
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to complete supplier registration. Please try again.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
-    toast.success('Supplier account created! Please complete your business profile.');
-    trackSignUp('supplier');
-    navigate('/business-setup');
   };
 
   const autofillDemoAccount = (email: string, pw: string) => {
@@ -523,20 +577,19 @@ export default function AuthPage() {
       <AuthLeftPanel tab={activeTab} />
 
       {/* Right — auth forms */}
-      <div className="flex-1 min-w-0 flex items-center justify-center p-6 bg-background">
-        <div className="w-full max-w-md">
+      <div className="flex-1 min-w-0 h-screen overflow-y-auto flex items-start sm:items-center justify-center p-4 sm:p-6 md:p-8 bg-background">
+        <div className="w-full max-w-md py-6 my-auto">
           {/* Mobile logo */}
-          <div className="md:hidden flex items-center mb-8 justify-center">
+          <div className="md:hidden flex items-center mb-6 justify-center">
             <BrandLogo size="md" variant="auto" linkTo="/" />
           </div>
 
           <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'login' | 'buyer' | 'supplier')}>
             {user && (
-              <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between gap-3 text-xs">
+              <div className="mb-4 p-3.5 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between gap-3 text-xs">
                 <div className="min-w-0">
-                  <span className="text-muted-foreground">Signed in as: </span>
-                  <span className="font-semibold text-foreground truncate">{profile?.full_name || user.email}</span>
-                  <span className="ml-1.5 capitalize text-primary font-medium">({profile?.role || 'user'})</span>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Account</p>
+                  <p className="font-bold text-foreground truncate">{profile?.full_name || user.email} <span className="capitalize text-primary font-semibold">({profile?.role || 'user'})</span></p>
                 </div>
                 <Button
                   type="button"
@@ -544,9 +597,10 @@ export default function AuthPage() {
                   variant="outline"
                   onClick={async () => {
                     await signOut();
-                    toast.info('Signed out. You can now register a new account.');
+                    setError('');
+                    toast.info('Signed out. You can now register or sign in with a different account.');
                   }}
-                  className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 shrink-0"
+                  className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/15 shrink-0"
                 >
                   Sign Out
                 </Button>
