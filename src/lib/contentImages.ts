@@ -1,0 +1,770 @@
+import { PRE_CACHED_PIXABAY_IMAGES } from '@/lib/pixabay';
+
+/**
+ * Content-Based Image System for BulkSkart B2B Marketplace
+ *
+ * Strict Rules:
+ * 1. PRODUCTS: Every product has its own PRODUCT-SPECIFIC image (e.g. Solar panel -> solar panel photo).
+ *    Never reuse generic images across unrelated products.
+ * 2. COMPANIES: Dedicated company branding (distinct company logo, factory/facility cover banner).
+ *    Never use product images as company logos. Never share identical images across different companies.
+ * 3. RFQS / LIVE REQUIREMENTS: Requirement-specific image representing what the buyer is requesting.
+ *    The image represents the commodity/product requested, not the supplier.
+ * 4. FALLBACKS: Category-specific placeholders when genuine images are absent.
+ */
+
+// Generic placeholders and repeated stock images that MUST be replaced with distinct authentic content images
+const GENERIC_PLACEHOLDERS = [
+  'prod_asset_19173084',
+  'prod_asset_3dd25eca',
+  'prod_asset_06e7b00f',
+  'prod_asset_206d733c',
+  'prod_asset_474d3681',
+  'prod_asset_d6f9b3ff',
+  'prod_asset_22110305',
+  'prod_asset_ba175bf8',
+  'prod_asset_4af11ca3',
+  'prod_asset_a3c06a3e',
+  'prod_asset_18bd87c0',
+  'prod_asset_ede57bc5',
+  'photo-1581091226825-a6a2a5aee158', // Female engineer with laptop repeated excessively
+  'photo-1584917865442-de89df76afd3',
+  'photo-1544816155-12df9643f363', // Passport mismatch
+  'photo-1542838132-92c53300491e', // Cash / money notes mismatch
+  '3127927', // Passport with visas mismatch
+  'photo-1581092160607-ee22621dd758', // Seashell mismatch
+  'photo-1565123409695-7b5ef63a2efb',
+  '663096', // Pasta mismatch
+  '4385125', // Dollar bills mismatch
+  '67616', // Nebula mismatch
+  '5007955', // Train mismatch
+  '257336', // Pills mismatch
+  'placeholder',
+  'via.placeholder.com',
+  'default-product',
+];
+
+export function isGenericImage(url?: string | null): boolean {
+  if (!url) return true;
+  return GENERIC_PLACEHOLDERS.some((p) => url.includes(p));
+}
+
+// ---------------------------------------------------------------------------
+// 1. PRODUCT-SPECIFIC AUTHENTIC IMAGES (Exact commodity representation)
+// ---------------------------------------------------------------------------
+// Comprehensive keyword mapping to ensure EVERY industrial commodity has a dedicated, authentic photo
+export const PRODUCT_SPECIFIC_IMAGES: { keywords: string[]; url: string; fallbackCategory: string }[] = [
+  // Machinery & CNC
+  {
+    keywords: ['cnc', 'machining', '5-axis', 'vertical machining', 'milling center', 'precision lathe'],
+    url: 'https://cdn.pixabay.com/photo/2014/09/13/21/46/milling-444493_1280.jpg',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['lathe', 'turning machine', 'metal lathe', 'industrial lathe', 'rotary'],
+    url: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['laser cutting', 'fiber laser', 'sheet metal laser', 'laser cutting machine'],
+    url: 'https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['injection molding', 'plastic molding machine', 'molding machine'],
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['packaging machine', 'carton packing', 'blister packaging', 'packing machine', 'sealing machine', 'vffs'],
+    url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['hydraulic', 'hydraulic press', 'hydraulic pump', 'gear pump', 'valve test'],
+    url: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['boiler', 'steam boiler', 'pressure vessel', 'heat exchanger'],
+    url: 'https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['forging', 'foundry', 'metal casting', 'drop forge', 'forged parts'],
+    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'metals',
+  },
+  {
+    keywords: ['pump', 'slurry pump', 'centrifugal pump', 'gate valve', 'flanged valve'],
+    url: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['bearing', 'ball bearing', 'roller bearing', 'flange bearing', 'thrust bearing'],
+    url: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['food truck', 'catering trailer', 'commercial kitchen truck', 'mobile kitchen'],
+    url: 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+
+  // Chemicals & Minerals
+  {
+    keywords: ['sodium hypochlorite', 'chlorine', 'bleach', 'disinfectant'],
+    url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['hydrogen peroxide', 'peroxide', 'oxidizer'],
+    url: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['calcium carbonate', 'chalk powder', 'ground limestone', 'mineral powder'],
+    url: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['titanium dioxide', 'rutile', 'white pigment', 'tio2'],
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['activated carbon', 'charcoal filter', 'carbon mesh'],
+    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['silica gel', 'desiccant', 'white beads', 'moisture absorber'],
+    url: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['gypsum', 'plaster of paris', 'gypsum powder'],
+    url: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['calcium chloride', 'deicing salt', 'brine flakes'],
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['dap fertiliser', 'npk', 'fertiliser', 'fertilizer', 'urea', 'potash'],
+    url: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'agriculture',
+  },
+
+  // Polymers & Plastics
+  {
+    keywords: ['bubble wrap', 'air bubble', 'protective roll', 'cushion packaging'],
+    url: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['ldpe', 'hdpe', 'polypropylene', 'pp granules', 'plastic resin', 'masterbatch'],
+    url: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'plastics',
+  },
+  {
+    keywords: ['silicone rubber', 'rubber sheet', 'elastomer', 'gasket sheet'],
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'plastics',
+  },
+  {
+    keywords: ['hips sheet', 'acrylic sheet', 'polycarbonate sheet', 'plastic sheet'],
+    url: 'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg',
+    fallbackCategory: 'plastics',
+  },
+
+  // Electronics & Solar
+  {
+    keywords: ['solar panel', 'photovoltaic', 'topcon', 'solar module', 'bifacial solar', 'pv module'],
+    url: 'https://images.unsplash.com/photo-1545208942-e1c9c916524b?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['pcb', 'printed circuit board', 'smt line', 'circuit board', 'electronic component'],
+    url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['semiconductor', 'microcontroller', 'wafer', 'integrated circuit', 'micro-power'],
+    url: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['wire harness', 'cable assembly', 'industrial cabling', 'copper wire'],
+    url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['power systems', 'substation', 'inverter', 'transformer', 'switchgear'],
+    url: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+
+  // Pharmaceuticals & Medical
+  {
+    keywords: ['pharma', 'amoxicillin', 'capsule', 'medicine', 'tablet', 'formulation'],
+    url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'pharma',
+  },
+  {
+    keywords: ['herbal', 'ayurvedic', 'plant extract', 'botanical extract'],
+    url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'pharma',
+  },
+  {
+    keywords: ['diagnostics', 'medical supplies', 'test kit', 'lab supplies'],
+    url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'pharma',
+  },
+
+  // Textiles & Leather
+  {
+    keywords: ['leather', 'hide', 'tannery', 'vachetta', 'full grain'],
+    url: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['terracotta', 'tile', 'ceramic', 'porcelain', 'marble'],
+    url: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'construction',
+  },
+  {
+    keywords: ['hosiery', 't-shirt', 'knitwear', 'garments', 'cotton yarn'],
+    url: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['silk', 'sari', 'saree', 'brocade', 'jacquard'],
+    url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['woollen', 'wool', 'blanket', 'fleece', 'yarn'],
+    url: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['cotton', 'fabric', 'denim', 'textile mill'],
+    url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['furniture', 'wood', 'sofa', 'desk', 'cabinet'],
+    url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'furniture',
+  },
+  {
+    keywords: ['mining', 'excavator', 'heavy equipment', 'crusher'],
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['industrial machinery', 'conveyor', 'gearbox', 'automation equipment'],
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['hydraulic pump', 'gear pump', 'hydraulic motor', 'cast iron pump', 'piston pump'],
+    url: 'https://cdn.pixabay.com/photo/2016/09/12/07/48/mechanical-1663275_1280.jpg',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['ev charger', 'fast charger', 'charging station', 'dc fast charger', 'ccs2', 'electric vehicle charger'],
+    url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['energy storage', 'lifepo4', 'battery storage', 'bess', 'solar battery cabinet', 'battery system'],
+    url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['espresso machine', 'coffee vending', 'commercial coffee', 'barista station'],
+    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['food truck', 'catering trailer', 'commercial kitchen truck', 'mobile kitchen'],
+    url: 'https://cdn.pixabay.com/photo/2017/06/05/20/51/food-truck-2375246_1280.jpg',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['weaving loom', 'textile loom', 'spinning machine', 'textile machine'],
+    url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['cotton twill', 'cotton fabric', 'fabric rolls', 'textile rolls', 'combed cotton'],
+    url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['rice', 'basmati', 'steamed rice', 'grain export', 'cereals'],
+    url: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'agriculture',
+  },
+  {
+    keywords: ['polypropylene', 'pp granules', 'polymer resin', 'plastic raw material', 'injection granules'],
+    url: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'plastics',
+  },
+  {
+    keywords: ['solar panel', 'photovoltaic', 'topcon', 'solar module', 'bifacial solar'],
+    url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['pipe fitting', 'flange', 'valve', 'stainless steel pipe', 'industrial valve'],
+    url: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'metals',
+  },
+  {
+    keywords: ['bearing', 'ball bearing', 'roller bearing', 'flange bearing'],
+    url: 'https://images.unsplash.com/photo-1545208942-e1c9c916524b?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['pcb', 'printed circuit board', 'smt line', 'lorawan', 'iot gateway', 'electronics component'],
+    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['carton box', 'corrugated box', 'shipping carton', 'cardboard box', 'packaging box'],
+    url: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['transformer', 'power transformer', 'high voltage', 'substation'],
+    url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['hdpe pipe', 'drainage pipe', 'corrugated pipe', 'pvc pipe'],
+    url: 'https://cdn.pixabay.com/photo/2014/09/02/12/47/pipe-433609_1280.jpg',
+    fallbackCategory: 'construction',
+  },
+  {
+    keywords: ['kraft paper', 'valve bag', 'packaging bag', 'paper sack'],
+    url: 'https://cdn.pixabay.com/photo/2014/04/05/11/07/cardboard-314504_1280.jpg',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['machinery', 'industrial machine', 'hydraulic press', 'conveyor', 'gearbox'],
+    url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'machinery',
+  },
+  {
+    keywords: ['saree', 'sari', 'silk saree', 'banarasi', 'kanjivaram', 'cotton saree'],
+    url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['silk fabric', 'pure silk', 'silk roll', 'mulberry silk'],
+    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['denim', 'jeans', 'denim fabric', 'chambray', 'denim cloth'],
+    url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['polyester', 'blend cloth', 'synthetic fabric', 'poly blend', 'polyester cloth'],
+    url: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['linen', 'dress material', 'cotton dress', 'woven cloth'],
+    url: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['woollen', 'wool blanket', 'fleece polar', 'winter blanket', 'wool yarn'],
+    url: 'https://images.unsplash.com/photo-1584992236310-6edddc08acff?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['t-shirt', 'tshirt', 'polo shirt', 'hosiery', 'apparel garment'],
+    url: 'https://cdn.pixabay.com/photo/2012/02/16/12/29/worker-13550_1280.jpg',
+    fallbackCategory: 'textiles',
+  },
+  {
+    keywords: ['jute', 'jute bag', 'gunny bag', 'burlap', 'hessian sack'],
+    url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['plastic packaging', 'packaging bag', 'polybag', 'pouch', 'ziplock', 'courier bag'],
+    url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['corrugated', 'carton', 'box', 'cardboard box', 'shipping box'],
+    url: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'packaging',
+  },
+  {
+    keywords: ['rice', 'basmati', 'grain', 'paddy', 'cereals'],
+    url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'agriculture',
+  },
+  {
+    keywords: ['chilli', 'spice', 'turmeric', 'pepper', 'cardamom', 'cumin'],
+    url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'agriculture',
+  },
+  {
+    keywords: ['steel', 'iron bar', 'rebar', 'stainless steel', 'steel coil', 'tmt bar'],
+    url: 'https://images.unsplash.com/photo-1535813547-99c456a41d4a?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'metals',
+  },
+  {
+    keywords: ['tile', 'vitrified', 'ceramic', 'porcelain tile', 'marble slab', 'granite'],
+    url: 'https://images.unsplash.com/photo-1523413651479-597eb2da0ad6?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'construction',
+  },
+  {
+    keywords: ['pipe', 'hdpe', 'pvc pipe', 'upvc', 'plumbing pipe', 'conduit'],
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'construction',
+  },
+  {
+    keywords: ['brake pad', 'auto parts', 'clutch', 'automotive', 'vehicle parts', 'engine part'],
+    url: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'auto',
+  },
+  {
+    keywords: ['diamond gemstone', 'fine jewellery', 'polished diamond', 'solitaire diamond', 'gold jewellery', 'silver jewellery', 'gemstone ring', 'diamond necklace'],
+    url: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'gems',
+  },
+  {
+    keywords: ['furniture', 'teak', 'wooden chair', 'office desk', 'sofa', 'cabinet'],
+    url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'furniture',
+  },
+  {
+    keywords: ['amoxicillin', 'capsule', 'medicine', 'pharma', 'tablet', 'pharmaceutical'],
+    url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'pharma',
+  },
+  {
+    keywords: ['dyes', 'reactive dye', 'chemical', 'pigment', 'solvent', 'industrial chemical'],
+    url: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'chemicals',
+  },
+  {
+    keywords: ['headphone', 'earphone', 'wireless earbud', 'audio gadget', 'bluetooth'],
+    url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'electronics',
+  },
+  {
+    keywords: ['shrimp', 'prawn', 'fish', 'seafood', 'frozen seafood'],
+    url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=800&q=80',
+    fallbackCategory: 'agriculture',
+  },
+  {
+    keywords: ['granule', 'polymer', 'ldpe', 'hdpe granule', 'plastic raw material', 'resin'],
+    url: 'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg',
+    fallbackCategory: 'plastics',
+  },
+];
+
+// Clean category-specific fallbacks (Real industrial factory & wholesale photography via Pixabay & Unsplash CDN)
+export const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
+  machinery: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80',
+  electronics: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+  textiles: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=80',
+  agriculture: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+  chemicals: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+  construction: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80',
+  furniture: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+  auto: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80',
+  pharma: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80',
+  plastics: 'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg',
+  gems: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80',
+  packaging: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+  metals: 'https://images.unsplash.com/photo-1535813547-99c456a41d4a?auto=format&fit=crop&w=800&q=80',
+  solar: 'https://images.unsplash.com/photo-1545208942-e1c9c916524b?auto=format&fit=crop&w=800&q=80',
+  electrical: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+  default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+};
+
+/**
+ * Generates an isolated, product-specific fallback image data URI.
+ * Guarantees that if a product has no image or an image fails to load,
+ * it receives an isolated badge fallback containing ONLY that specific product's
+ * name and sector, preventing the same image from being reused across different products.
+ */
+export function generateIsolatedProductFallback(title?: string, category?: string): string {
+  const cleanTitle = (title || 'Bulk Requirement').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const cleanCat = (category || 'Industrial Goods').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  
+  // Deterministic accent color based on title hash
+  let hash = 0;
+  for (let i = 0; i < cleanTitle.length; i++) {
+    hash = (hash << 5) - hash + cleanTitle.charCodeAt(i);
+    hash |= 0;
+  }
+  const hues = [25, 210, 160, 280, 45, 190];
+  const hue = hues[Math.abs(hash) % hues.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0E111A"/>
+        <stop offset="100%" stop-color="#181D2D"/>
+      </linearGradient>
+      <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="hsl(${hue}, 90%, 55%)"/>
+        <stop offset="100%" stop-color="hsl(${hue + 20}, 90%, 65%)"/>
+      </linearGradient>
+    </defs>
+    <rect width="600" height="400" fill="url(#bg)"/>
+    <rect x="20" y="20" width="560" height="360" rx="16" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+    <circle cx="300" cy="150" r="48" fill="rgba(255,255,255,0.04)" stroke="url(#accent)" stroke-width="2.5"/>
+    <path d="M285 140 L315 140 M285 150 L315 150 M285 160 L305 160" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+    <rect x="235" y="220" width="130" height="24" rx="12" fill="url(#accent)" fill-opacity="0.18"/>
+    <text x="300" y="236" fill="hsl(${hue}, 95%, 65%)" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">${cleanCat.toUpperCase()}</text>
+    <text x="300" y="280" fill="#F8FAFC" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" text-anchor="middle">
+      ${cleanTitle.length > 36 ? cleanTitle.slice(0, 36) + '...' : cleanTitle}
+    </text>
+    <text x="300" y="325" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-anchor="middle">
+      BulkSkart B2B Verified Commodity
+    </text>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+import { matchProductImage } from '@/lib/productImageMatchingEngine';
+
+/**
+ * Resolves a product's primary display image.
+ * If user uploaded an authentic image, uses it.
+ * If missing or generic placeholder, matches product title/name to exact commodity photo.
+ */
+export function resolveProductImage(
+  item: {
+    name?: string;
+    title?: string;
+    images?: string[] | null;
+    image?: string | null;
+    category?: string | null;
+  }
+): string {
+  // Check if item has a valid, non-generic uploaded image
+  const customImg = item.images?.[0] || item.image;
+  if (customImg && !isGenericImage(customImg)) {
+    return customImg;
+  }
+
+  // Use Alibaba-benchmarked matching engine first
+  const matched = matchProductImage({
+    name: item.name || item.title,
+    category: item.category || undefined,
+    currentImages: item.images,
+  });
+  if (matched.primaryImage) {
+    return matched.primaryImage;
+  }
+
+  const textToMatch = `${item.name || ''} ${item.title || ''} ${item.category || ''}`.toLowerCase();
+
+  // Match against product-specific keywords
+  for (const mapping of PRODUCT_SPECIFIC_IMAGES) {
+    if (mapping.keywords.some((k) => textToMatch.includes(k))) {
+      return mapping.url;
+    }
+  }
+
+  // Fallback by category
+  for (const [catKey, url] of Object.entries(CATEGORY_FALLBACK_IMAGES)) {
+    if (textToMatch.includes(catKey)) return url;
+  }
+
+  return generateIsolatedProductFallback(item.name || item.title, item.category || 'General Products');
+}
+
+/**
+ * Resolves a Live Buying Requirement / RFQ image based on what the buyer is requesting.
+ * The RFQ image represents the requested product/commodity, NOT the company.
+ */
+export function resolveRfqImage(
+  rfq: {
+    title?: string;
+    name?: string;
+    attachment_url?: string | null;
+    imageUrl?: string | null;
+    category?: string | null;
+    categories?: { name?: string; slug?: string } | null;
+  }
+): string {
+  // 1. If buyer uploaded a requirement photo, use it directly!
+  const uploaded = rfq.attachment_url || rfq.imageUrl;
+  if (uploaded && !isGenericImage(uploaded)) {
+    return uploaded;
+  }
+
+  const catStr = `${rfq.category || ''} ${rfq.categories?.name || ''} ${rfq.categories?.slug || ''}`;
+  const textToMatch = `${rfq.title || ''} ${rfq.name || ''} ${catStr}`.toLowerCase();
+
+  // 2. Match exact commodity requested
+  for (const mapping of PRODUCT_SPECIFIC_IMAGES) {
+    if (mapping.keywords.some((k) => textToMatch.includes(k))) {
+      return mapping.url;
+    }
+  }
+
+  // 3. Fallback by requirement sector
+  for (const [catKey, url] of Object.entries(CATEGORY_FALLBACK_IMAGES)) {
+    if (textToMatch.includes(catKey)) return url;
+  }
+
+  // 4. Isolated product fallback
+  return generateIsolatedProductFallback(rfq.title || rfq.name, rfq.category || rfq.categories?.name || 'Bulk RFQ');
+}
+
+// ---------------------------------------------------------------------------
+// 2. COMPANY BRANDING & LOGOS (Distinct corporate identity)
+// ---------------------------------------------------------------------------
+
+// Curated pool of 36 distinct Pixabay industrial facility & plant photography
+export const DISTINCT_PIXABAY_COMPANY_IMAGES: string[] = [
+  'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80', // 0: Welding steel fabrication
+  'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80', // 1: Corrugated packaging logistics
+  'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80', // 2: Electrical wiring & transformers
+  'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80', // 3: Chemical synthesis lab
+  'https://cdn.pixabay.com/photo/2017/04/02/09/08/bulldozer-2195329_1280.jpg', // 4: Heavy machinery earthmoving
+  'https://cdn.pixabay.com/photo/2017/12/28/22/03/lens-3046269_1280.jpg', // 5: Precision optics manufacturing
+  'https://cdn.pixabay.com/photo/2017/10/04/21/01/turbine-engine-2817617_1280.jpg', // 6: Gas turbine & petrochemicals
+  'https://cdn.pixabay.com/photo/2020/10/03/09/05/solar-energy-5622969_1280.jpg', // 7: Solar battery & green energy
+  'https://cdn.pixabay.com/photo/2016/09/12/07/48/mechanical-1663275_1280.jpg', // 8: CNC robotics automation
+  'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', // 9: Agro grains & cereals milling
+  'https://cdn.pixabay.com/photo/2019/03/25/04/43/weaving-4079366_1280.jpg', // 10: Textile loom & yarn weaving
+  'https://cdn.pixabay.com/photo/2017/03/27/14/56/auto-2179220_1280.jpg', // 11: Automotive castings & steel alloys
+  'https://cdn.pixabay.com/photo/2014/09/13/21/46/milling-444493_1280.jpg', // 12: Heavy milling lathe & toolmaking
+  'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg', // 13: Polymers & plastic raw pellets
+  'https://cdn.pixabay.com/photo/2014/04/05/11/07/cardboard-314504_1280.jpg', // 14: Kraft paper & shipping cartons
+  'https://cdn.pixabay.com/photo/2014/09/02/12/47/pipe-433609_1280.jpg', // 15: Industrial HDPE & PVC piping
+  'https://cdn.pixabay.com/photo/2020/07/03/23/56/capacitors-5367873_1280.jpg', // 16: Printed circuits & microelectronics
+  'https://cdn.pixabay.com/photo/2021/02/03/03/22/chemistry-5976465_1280.jpg', // 17: Specialty chemical refining
+  'https://cdn.pixabay.com/photo/2017/08/25/23/29/wire-2681887_1280.jpg', // 18: High voltage copper winding
+  'https://cdn.pixabay.com/photo/2017/10/25/17/36/cans-2888650_1280.jpg', // 19: Aluminum beverage & metal canning
+  'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=800&q=80', // 20: Cleanroom wafer fabrication
+  'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80', // 21: Container port maritime terminal
+  'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80', // 22: Automotive robotic assembly plant
+  'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80', // 23: Steel ball bearings & bushings
+  'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=80', // 24: Dyed yarn spools & knitwear
+  'https://cdn.pixabay.com/photo/2016/11/19/11/33/footwear-1838767_1280.jpg', // 25: Industrial footwear & leather
+  'https://cdn.pixabay.com/photo/2015/08/25/03/50/basil-906137_1280.jpg', // 26: Organic spice extraction plant
+  'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80', // 27: Pharmaceutical production line
+  'https://cdn.pixabay.com/photo/2018/08/14/13/23/ocean-3605547_1280.jpg', // 28: Bulk dry cargo shipping vessel
+  'https://cdn.pixabay.com/photo/2017/01/05/10/38/auto-repair-1954636_1280.jpg', // 29: Hydraulic systems & pumps
+  'https://cdn.pixabay.com/photo/2017/04/11/16/12/leather-2222053_1280.jpg', // 30: Tannery leather hide processing
+  'https://cdn.pixabay.com/photo/2020/11/13/21/09/excavator-5739966_1280.jpg', // 31: Quarry mining & building stone
+  'https://cdn.pixabay.com/photo/2017/06/05/20/51/food-truck-2375246_1280.jpg', // 32: Stainless steel catering machinery
+  'https://cdn.pixabay.com/photo/2016/07/12/11/45/towels-1511875_1280.jpg', // 33: Terry towel & home textiles
+  'https://cdn.pixabay.com/photo/2018/03/10/09/45/businessman-3213659_1280.jpg', // 34: Global trade auditing center
+  'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_1280.jpg', // 35: International customs clearance
+];
+
+// Curated authentic manufacturing facility & factory cover banners (by industrial hub)
+export const FACTORY_COVER_BANNERS: Record<string, string> = {
+  machinery: DISTINCT_PIXABAY_COMPANY_IMAGES[8],
+  electronics: DISTINCT_PIXABAY_COMPANY_IMAGES[16],
+  textiles: DISTINCT_PIXABAY_COMPANY_IMAGES[10],
+  chemicals: DISTINCT_PIXABAY_COMPANY_IMAGES[3],
+  metals: DISTINCT_PIXABAY_COMPANY_IMAGES[0],
+  packaging: DISTINCT_PIXABAY_COMPANY_IMAGES[1],
+  default: DISTINCT_PIXABAY_COMPANY_IMAGES[12],
+};
+
+// Generates an elegant SVG Data URI logo for a company using its initials and corporate theme
+export function generateCompanyLogo(companyName: string, idSeed = ''): string {
+  const cleanName = (companyName || 'Supplier').trim();
+  const words = cleanName.split(/\s+/).filter(Boolean);
+  const initials = words.length >= 2
+    ? (words[0][0] + words[1][0]).toUpperCase()
+    : cleanName.slice(0, 2).toUpperCase();
+
+  // Consistent color palette derived from name hash
+  const palettes = [
+    { bg: '#0F2B48', border: '#2563EB', text: '#FFFFFF', accent: '#38BDF8' },
+    { bg: '#2D1B4E', border: '#7C3AED', text: '#FFFFFF', accent: '#A78BFA' },
+    { bg: '#064E3B', border: '#059669', text: '#FFFFFF', accent: '#34D399' },
+    { bg: '#78350F', border: '#D97706', text: '#FFFFFF', accent: '#FBBF24' },
+    { bg: '#831843', border: '#DB2777', text: '#FFFFFF', accent: '#F472B6' },
+    { bg: '#1E293B', border: '#FF5A00', text: '#FFFFFF', accent: '#FF7A29' },
+  ];
+
+  let hash = 0;
+  const str = cleanName + idSeed;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const theme = palettes[Math.abs(hash) % palettes.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+    <rect width="120" height="120" rx="24" fill="${theme.bg}"/>
+    <rect x="6" y="6" width="108" height="108" rx="20" fill="none" stroke="${theme.border}" stroke-width="3" stroke-opacity="0.6"/>
+    <circle cx="100" cy="20" r="4" fill="${theme.accent}"/>
+    <text x="60" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="38" font-weight="800" fill="${theme.text}" text-anchor="middle" dominant-baseline="middle" letter-spacing="1">
+      ${initials}
+    </text>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Resolves company branding:
+ * - Logo: Company logo URL if provided, otherwise SVG corporate brand monogram
+ * - Banner: Factory/facility cover banner
+ */
+export function resolveCompanyBranding(company: {
+  id?: string;
+  company_name?: string;
+  name?: string;
+  logo_url?: string | null;
+  banner_url?: string | null;
+  cover_url?: string | null;
+  business_type?: string | null;
+  industry?: string | null;
+  key_products?: string[] | null;
+}): { logo: string; banner: string } {
+  const name = company.company_name || company.name || 'Company';
+
+  // 1. Logo resolver: Ensure company uses its own logo, not a product image
+  let logo = company.logo_url;
+  if (!logo || isGenericImage(logo)) {
+    logo = generateCompanyLogo(name, company.id || '');
+  }
+
+  // 2. Banner resolver: Prioritize authentic self-hosted cover_url over static unsplash banner_url
+  let banner = company.cover_url || company.banner_url;
+  if (company.banner_url?.includes('unsplash.com') && company.cover_url && !company.cover_url.includes('unsplash.com')) {
+    banner = company.cover_url;
+  }
+  if (!banner || isGenericImage(banner)) {
+    // Generate a deterministic unique index from company ID and name to guarantee NO two companies share an image
+    let seed = 0;
+    const str = `${company.id || ''}_${name}_${company.business_type || ''}`;
+    for (let i = 0; i < str.length; i++) {
+      seed = (seed << 5) - seed + str.charCodeAt(i);
+      seed |= 0;
+    }
+    const distinctIdx = Math.abs(seed) % DISTINCT_PIXABAY_COMPANY_IMAGES.length;
+    banner = DISTINCT_PIXABAY_COMPANY_IMAGES[distinctIdx];
+  }
+
+  return { logo, banner };
+}

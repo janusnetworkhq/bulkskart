@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <link rel="preconnect" href="https://ewnftvshvsrhawluloty.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://ewnftvshvsrhawluloty.supabase.co" />
+    <script>
+      (function() {
+        // Immediate Cleanup of rogue Service Workers and CacheStorage
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+            }).catch(function() {});
+          }
+        } catch (e) {}
+
+        try {
+          var saved = localStorage.getItem('bs-theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = saved || (prefersDark ? 'dark' : 'light');
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <link rel="icon" type="image/png" sizes="48x48" href="/brand/bulkskart-icon.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="shortcut icon" href="/brand/bulkskart-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#FF5A00" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace</title>
+    <meta name="description" content="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart." />
+    <meta name="keywords" content="B2B bulk marketplace, verified manufacturers India, wholesale sourcing, RFQ platform, bulk trade, wholesale suppliers, MOQ, bulk pricing" />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="Bulkskart" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bulkskart" />
+    <meta property="og:url" content="https://www.bulkskart.com/" />
+    <meta property="og:title" content="Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace" />
+    <meta property="og:description" content="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart." />
+    <meta property="og:image" content="https://www.bulkskart.com/brand/bulkskart-logo.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Bulkskart B2B Marketplace Official Logo" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@bulkskart" />
+    <meta name="twitter:title" content="Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace" />
+    <meta name="twitter:description" content="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart." />
+    <meta name="twitter:image" content="https://www.bulkskart.com/brand/bulkskart-logo.jpg" />
+    <!-- Organization Schema with official logo URL for Google Search Knowledge Graph and Favicon -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.bulkskart.com/#organization",
+          "name": "BulkSkart",
+          "url": "https://www.bulkskart.com",
+          "logo": {
+            "@type": "ImageObject",
+            "@id": "https://www.bulkskart.com/#logo",
+            "url": "https://www.bulkskart.com/brand/bulkskart-logo.jpg",
+            "contentUrl": "https://www.bulkskart.com/brand/bulkskart-logo.jpg",
+            "caption": "BulkSkart Logo",
+            "width": 1200,
+            "height": 630
+          },
+          "image": "https://www.bulkskart.com/brand/bulkskart-logo.jpg",
+          "description": "India's #1 B2B Bulk Wholesale Marketplace connecting verified manufacturers with global buyers."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.bulkskart.com/#website",
+          "url": "https://www.bulkskart.com",
+          "name": "BulkSkart",
+          "description": "Global B2B Bulk Marketplace · Source • Supply • Scale",
+          "publisher": {
+            "@id": "https://www.bulkskart.com/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.bulkskart.com/products?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
+    <link rel="canonical" href="https://www.bulkskart.com/" />
+    <meta name="msvalidate.01" content="718E6DDD7A09C0EF1D97B4EB39EDEF6E" />
+    <!-- Efficient preconnects (critical origins for rapid initial paint) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <link rel="preconnect" href="https://ewnftvshvsrhawluloty.supabase.co" crossorigin />
+    <!-- Non-blocking font load to eliminate CSS @import delay -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
+    </noscript>
+
+    <!-- Preload Hero LCP background image in WebP for near-instant Largest Contentful Paint -->
+    <link rel="preload" as="image" href="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=75&fm=webp&w=1200" type="image/webp" fetchpriority="high" />
+
+    <!-- Immediate canonical redirect: apex domain (bulkskart.com) -> www.bulkskart.com -->
+    <script>
+      (function() {
+        if (window.location.hostname === 'bulkskart.com') {
+          window.location.replace('https://www.bulkskart.com' + window.location.pathname + window.location.search + window.location.hash);
+        }
+      })();
+    </script>
+
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-T4HWCGKD');</script>
+    <!-- End Google Tag Manager -->
+
+    <!-- JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": "https://www.bulkskart.com/#organization",
+      "name": "BulkSkart",
+      "legalName": "Tech Pod AI Database Private Limited",
+      "url": "https://www.bulkskart.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.bulkskart.com/favicon.svg",
+        "width": 32,
+        "height": 32
+      },
+      "description": "BulkSkart is India's #1 B2B bulk wholesale marketplace connecting verified manufacturers with global buyers. Post RFQs free and receive quotes within 24 hours.",
+      "foundingDate": "2024",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "IN"
+      },
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "email": "contact@techpodai.com",
+          "url": "https://www.bulkskart.com/contact",
+          "availableLanguage": ["English", "Hindi"]
+        }
+      ],
+      "sameAs": [
+        "https://linkedin.com/company/techpodai",
+        "https://twitter.com/techpodai",
+        "https://facebook.com/techpodai",
+        "https://instagram.com/techpodai",
+        "https://youtube.com/@techpodai"
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD: WebSite (enables Google Sitelinks Search Box) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": "https://www.bulkskart.com/#website",
+      "name": "BulkSkart",
+      "url": "https://www.bulkskart.com/",
+      "description": "India's #1 B2B bulk wholesale marketplace. Connect with 50,000+ verified manufacturers, post RFQs for free, and source bulk products at wholesale prices.",
+      "publisher": {
+        "@id": "https://www.bulkskart.com/#organization"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://www.bulkskart.com/products?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "inLanguage": "en-IN"
+    }
+    </script>
+  </head>
+  <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T4HWCGKD"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

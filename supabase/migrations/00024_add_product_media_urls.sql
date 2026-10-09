@@ -1,0 +1,3 @@
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS video_url   text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS brochure_url text DEFAULT NULL;

@@ -1,0 +1,3 @@
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS pixabay_asset_id TEXT,
+  ADD COLUMN IF NOT EXISTS matched_tag TEXT;

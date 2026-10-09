@@ -1,0 +1,280 @@
+[
+  {
+    "productId": "a9f11356-172b-41b5-bbeb-0e30001da395",
+    "title": "Meenakari Choker Necklace SKU5",
+    "queryUsed": "meenakari choker",
+    "top3Hits": [
+      {
+        "id": 1846127,
+        "tags": "woman, fashion, model, portrait, sunglasses, shades, eyewear, crop top, tattoos,...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 7357931,
+        "tags": "woman, model, portrait, pose, style, fashion, posing, young woman, girl, modelin...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 1267128,
+        "tags": "woman, neck, choker, collar, to paste, neck, neck, neck, choker, choker, choker,...",
+        "isMatch": true,
+        "matchedTag": "choker"
+      }
+    ],
+    "chosenHitId": 1267127,
+    "matchedTag": "choker"
+  },
+  {
+    "productId": "659eff39-2c11-456b-8c94-16737bcbde7f",
+    "title": "Meenakari Choker Necklace SKU155",
+    "queryUsed": "meenakari choker",
+    "top3Hits": [
+      {
+        "id": 1846127,
+        "tags": "woman, fashion, model, portrait, sunglasses, shades, eyewear, crop top, tattoos,...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 7357931,
+        "tags": "woman, model, portrait, pose, style, fashion, posing, young woman, girl, modelin...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 1267128,
+        "tags": "woman, neck, choker, collar, to paste, neck, neck, neck, choker, choker, choker,...",
+        "isMatch": true,
+        "matchedTag": "choker"
+      }
+    ],
+    "chosenHitId": 2819394,
+    "matchedTag": "choker"
+  },
+  {
+    "productId": "0810dcd3-6430-45bd-adef-18e9133f6e9d",
+    "title": "Polki Diamond Look Ring SKU246",
+    "queryUsed": "diamond ring",
+    "top3Hits": [
+      {
+        "id": 1839031,
+        "tags": "diamond, jewelry, macro, ring, diamond ring, gem, crystal, shiny, engagement rin...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 1137413,
+        "tags": "emerald, ring, luxury accessories, diamond, emerald, emerald, emerald, emerald, ...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 7389356,
+        "tags": "jewel, diamond, ring, fashion, jewelry, wedding, diamond, diamond, ring, ring, r...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      }
+    ],
+    "chosenHitId": 2157153,
+    "matchedTag": "ring"
+  },
+  {
+    "productId": "0b94cbf4-6276-4014-ba31-2e358b1e82e8",
+    "title": "Polki Diamond Look Ring SKU96",
+    "queryUsed": "diamond ring",
+    "top3Hits": [
+      {
+        "id": 1839031,
+        "tags": "diamond, jewelry, macro, ring, diamond ring, gem, crystal, shiny, engagement rin...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 1137413,
+        "tags": "emerald, ring, luxury accessories, diamond, emerald, emerald, emerald, emerald, ...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 7389356,
+        "tags": "jewel, diamond, ring, fashion, jewelry, wedding, diamond, diamond, ring, ring, r...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      }
+    ],
+    "chosenHitId": 4587223,
+    "matchedTag": "ring"
+  },
+  {
+    "productId": "04797b91-c2b3-4f2f-bea4-49c42bc7ce28",
+    "title": "Polki Diamond Look Ring SKU156",
+    "queryUsed": "diamond ring",
+    "top3Hits": [
+      {
+        "id": 1839031,
+        "tags": "diamond, jewelry, macro, ring, diamond ring, gem, crystal, shiny, engagement rin...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 1137413,
+        "tags": "emerald, ring, luxury accessories, diamond, emerald, emerald, emerald, emerald, ...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 7389356,
+        "tags": "jewel, diamond, ring, fashion, jewelry, wedding, diamond, diamond, ring, ring, r...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      }
+    ],
+    "chosenHitId": 7389356,
+    "matchedTag": "ring"
+  },
+  {
+    "productId": "56b3620b-aecc-45a8-b7c2-2a588b0f2a34",
+    "title": "Polki Diamond Look Ring SKU216",
+    "queryUsed": "diamond ring",
+    "top3Hits": [
+      {
+        "id": 1839031,
+        "tags": "diamond, jewelry, macro, ring, diamond ring, gem, crystal, shiny, engagement rin...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 1137413,
+        "tags": "emerald, ring, luxury accessories, diamond, emerald, emerald, emerald, emerald, ...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 7389356,
+        "tags": "jewel, diamond, ring, fashion, jewelry, wedding, diamond, diamond, ring, ring, r...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      }
+    ],
+    "chosenHitId": 5574694,
+    "matchedTag": "wedding ring"
+  },
+  {
+    "productId": "1e1e1e8d-d8c3-4831-bdb0-dc5e04564b0b",
+    "title": "Polki Diamond Look Ring SKU6",
+    "queryUsed": "diamond ring",
+    "top3Hits": [
+      {
+        "id": 1839031,
+        "tags": "diamond, jewelry, macro, ring, diamond ring, gem, crystal, shiny, engagement rin...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 1137413,
+        "tags": "emerald, ring, luxury accessories, diamond, emerald, emerald, emerald, emerald, ...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 7389356,
+        "tags": "jewel, diamond, ring, fashion, jewelry, wedding, diamond, diamond, ring, ring, r...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      }
+    ],
+    "chosenHitId": 3153274,
+    "matchedTag": "ring"
+  },
+  {
+    "productId": "32f382ce-0e7a-4bab-904a-bf1a9058876e",
+    "title": "Polki Diamond Look Ring SKU36",
+    "queryUsed": "diamond ring",
+    "top3Hits": [
+      {
+        "id": 1839031,
+        "tags": "diamond, jewelry, macro, ring, diamond ring, gem, crystal, shiny, engagement rin...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 1137413,
+        "tags": "emerald, ring, luxury accessories, diamond, emerald, emerald, emerald, emerald, ...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      },
+      {
+        "id": 7389356,
+        "tags": "jewel, diamond, ring, fashion, jewelry, wedding, diamond, diamond, ring, ring, r...",
+        "isMatch": true,
+        "matchedTag": "ring"
+      }
+    ],
+    "chosenHitId": 4279991,
+    "matchedTag": "ring"
+  },
+  {
+    "productId": "7e8a74db-f1b3-4f95-a55a-fd31992235d8",
+    "title": "Meenakari Choker Necklace SKU305",
+    "queryUsed": "meenakari choker",
+    "top3Hits": [
+      {
+        "id": 1846127,
+        "tags": "woman, fashion, model, portrait, sunglasses, shades, eyewear, crop top, tattoos,...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 7357931,
+        "tags": "woman, model, portrait, pose, style, fashion, posing, young woman, girl, modelin...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 1267128,
+        "tags": "woman, neck, choker, collar, to paste, neck, neck, neck, choker, choker, choker,...",
+        "isMatch": true,
+        "matchedTag": "choker"
+      }
+    ],
+    "chosenHitId": 2819394,
+    "matchedTag": "choker"
+  },
+  {
+    "productId": "8a3197ca-bf94-4d44-9263-d700e581b645",
+    "title": "Meenakari Choker Necklace SKU335",
+    "queryUsed": "meenakari choker",
+    "top3Hits": [
+      {
+        "id": 1846127,
+        "tags": "woman, fashion, model, portrait, sunglasses, shades, eyewear, crop top, tattoos,...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 7357931,
+        "tags": "woman, model, portrait, pose, style, fashion, posing, young woman, girl, modelin...",
+        "isMatch": false,
+        "matchedTag": null,
+        "rejection": "missing_core_noun:choker"
+      },
+      {
+        "id": 1267128,
+        "tags": "woman, neck, choker, collar, to paste, neck, neck, neck, choker, choker, choker,...",
+        "isMatch": true,
+        "matchedTag": "choker"
+      }
+    ],
+    "chosenHitId": 10475389,
+    "matchedTag": "jewelry"
+  }
+]

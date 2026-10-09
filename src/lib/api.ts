@@ -1,0 +1,1681 @@
+import { supabase } from '@/db/supabase';
+import { ALIBABA_VERIFIED_SUPPLIERS, getAlibabaSupplierBySlug } from '@/data/alibabaVerifiedSuppliers';
+import { EXPANDED_GLOBAL_PRODUCTS, type GlobalCatalogProduct } from '@/data/expandedGlobalProducts';
+import { CURATED_INDUSTRIAL_PRODUCTS, type CuratedProduct } from '@/data/curatedIndustrialProducts';
+import {
+  MOCKUP_VERIFIED_COMPANIES,
+  MOCKUP_SUPPLIER_PRODUCTS,
+  MOCKUP_SUPPLIER_CERTS,
+  MOCKUP_SUPPLIER_REVIEWS,
+  findMockupCompany,
+} from '@/data/mockupVerifiedSuppliers';
+import type { Category, Company, CompanyCertification, CompanyReview, Product, Requirement, Quotation, Conversation, Message, Notification, Profile, OrderRow, SupplierInquiry, InquiryReply } from '@/types/types';
+
+function mapGlobalToProduct(gp: GlobalCatalogProduct): Product {
+  return {
+    id: gp.id,
+    company_id: gp.company_id,
+    category_id: gp.category_id,
+    name: gp.name,
+    slug: gp.slug,
+    description: gp.description,
+    specifications: gp.specifications,
+    moq: gp.moq,
+    moq_unit: gp.moq_unit,
+    price_min: gp.price_min,
+    price_max: gp.price_max,
+    price_currency: gp.price_currency || 'USD',
+    images: gp.images && gp.images.length > 0 ? gp.images : ['https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80'],
+    is_active: gp.is_active,
+    is_featured: gp.is_featured,
+    view_count: gp.view_count,
+    is_sponsored: gp.is_sponsored,
+    is_promoted: gp.is_promoted,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    companies: {
+      id: gp.company_id,
+      company_name: gp.company_name,
+      slug: gp.company_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      country: gp.country,
+      city: gp.city,
+      verification_status: 'verified',
+      rating_avg: 4.8,
+    } as any,
+    categories: {
+      id: gp.category_id,
+      name: gp.category_name,
+      slug: gp.category_slug,
+    } as any,
+  } as unknown as Product;
+}
+
+function mapCuratedToProduct(cp: CuratedProduct): Product {
+  return {
+    id: cp.id,
+    company_id: cp.companyId,
+    category_id: cp.categorySlug,
+    name: cp.name,
+    slug: cp.slug,
+    description: cp.subtitle,
+    specifications: `Manufacturer: ${cp.supplierName} | Country: ${cp.country} | MOQ: ${cp.moq} | Rating: ${cp.rating}★ | Badge: ${cp.badgeLabel}`,
+    moq: parseInt(cp.moq.replace(/[^0-9]/g, '')) || 10,
+    moq_unit: cp.moq.replace(/^[0-9\s+]+/, '') || 'Units',
+    price_min: cp.usdMin,
+    price_max: cp.usdMax,
+    price_currency: 'USD',
+    images: [cp.img],
+    is_active: true,
+    is_featured: true,
+    view_count: 320,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    companies: {
+      id: cp.companyId,
+      company_name: cp.supplierName,
+      slug: cp.companyId,
+      country: cp.country,
+      city: cp.country === 'India' ? 'Mumbai' : 'Industrial Hub',
+      verification_status: 'verified',
+      rating_avg: cp.rating,
+    } as any,
+    categories: {
+      id: cp.categorySlug,
+      name: cp.categoryName,
+      slug: cp.categorySlug,
+    } as any,
+  } as unknown as Product;
+}
+
+const PAGE_SIZE = 12;
+
+// ============================================================
+// SUBSCRIPTION HELPERS
+// ============================================================
+/**
+ * Returns the supplier's active subscription for a company, or null.
+ */
+export async function getActiveSubscription(companyId: string) {
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('status', 'active')
+    .maybeSingle();
+  return data ?? null;
+}
+
+/**
+ * Check whether a supplier can send a direct message or quotation to a buyer.
+ *
+ * Gate order:
+ *  1. Company must be a registered business (verified OR has a GST/IEC number)
+ *  2. Company must have an active paid subscription
+ *  3. Subscription quota must not be exhausted
+ *
+ * Returns: 'ok' | 'not_registered_business' | 'no_subscription' | 'quota_exceeded'
+ */
+export async function checkDirectMessageQuota(
+  companyId: string,
+  company?: import('@/types/types').Company | null,
+): Promise<'ok' | 'not_registered_business' | 'no_subscription' | 'quota_exceeded'> {
+  // Gate 1: must be a registered / verified business
+  if (company) {
+    const isRegistered =
+      company.verification_status === 'verified' ||
+      !!(company.gst_number?.trim()) ||
+      !!(company.iec_number?.trim()) ||
+      !!(company.reg_doc_url?.trim());
+    if (!isRegistered) return 'not_registered_business';
+  }
+
+  // Gate 2 & 3: active subscription + quota
+  const sub = await getActiveSubscription(companyId);
+  if (!sub) return 'no_subscription';
+  // Enterprise (999999) = unlimited
+  if (sub.max_rfq_leads >= 999999) return 'ok';
+  if ((sub.used_rfq_leads ?? 0) >= sub.max_rfq_leads) return 'quota_exceeded';
+  return 'ok';
+}
+
+/**
+ * Strict verification that only subscription paid manufacturers/suppliers
+ * can send direct messages or submit quotations to buyers.
+ */
+export async function checkSupplierPaidSubscription(
+  companyId?: string | null,
+  company?: import('@/types/types').Company | null
+): Promise<{ allowed: boolean; reason: 'not_logged_in' | 'not_registered_business' | 'no_subscription' | 'quota_exceeded' | 'ai_matching_subscription'; tier?: string; hasAiMatching?: boolean }> {
+  if (!companyId) {
+    return { allowed: false, reason: 'not_registered_business' };
+  }
+
+  // Check if company has registered business info
+  if (company) {
+    const isRegistered =
+      company.verification_status === 'verified' ||
+      !!(company.gst_number?.trim()) ||
+      !!(company.iec_number?.trim()) ||
+      !!(company.reg_doc_url?.trim());
+    if (!isRegistered) {
+      return { allowed: false, reason: 'not_registered_business' };
+    }
+  }
+
+  const sub = await getActiveSubscription(companyId);
+  if (!sub) {
+    return { allowed: false, reason: 'no_subscription' };
+  }
+
+  // Check quota
+  if (sub.max_rfq_leads < 999999 && (sub.used_rfq_leads ?? 0) >= sub.max_rfq_leads) {
+    return { allowed: false, reason: 'quota_exceeded', tier: sub.tier || sub.plan_tier };
+  }
+
+  const currentTier = String(sub.tier || sub.plan_tier || '').toLowerCase();
+  const hasAi = ['business', 'growth', 'enterprise'].includes(currentTier) || Boolean(sub.has_ai_access);
+
+  return { allowed: true, reason: 'no_subscription', tier: currentTier, hasAiMatching: hasAi };
+}
+
+/**
+ * Check whether a manufacturer has access to AI Product Matching.
+ * Unlocked by the ₹7,500 Business Package, ₹15,000 Growth, or the ₹7,500 AI Accessibility Add-on.
+ */
+export async function checkSupplierAiMatchingAccess(
+  companyId?: string | null,
+  userId?: string | null
+): Promise<{ allowed: boolean; tier: string | null; hasAiMatching: boolean; reason?: string; message?: string }> {
+  if (!companyId && !userId) {
+    return { allowed: false, tier: null, hasAiMatching: false, reason: 'not_logged_in', message: 'Login required' };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('can_supplier_use_ai_matching', {
+      p_company_id: companyId || null,
+      p_user_id: userId || null,
+    });
+
+    if (error) {
+      console.warn('RPC can_supplier_use_ai_matching error, falling back:', error.message);
+      if (companyId) {
+        const sub = await getActiveSubscription(companyId);
+        if (!sub) {
+          return { allowed: false, tier: null, hasAiMatching: false, reason: 'no_subscription', message: 'Subscription required' };
+        }
+        const tier = String(sub.tier || sub.plan_tier || '').toLowerCase();
+        const hasAi = ['business', 'growth', 'enterprise'].includes(tier) || Boolean(sub.has_ai_access);
+        return { allowed: hasAi, tier, hasAiMatching: hasAi, reason: hasAi ? undefined : 'upgrade_required' };
+      }
+      return { allowed: false, tier: null, hasAiMatching: false, reason: 'no_subscription' };
+    }
+
+    return (data as any) || { allowed: false, tier: null, hasAiMatching: false };
+  } catch (err: any) {
+    console.error('Failed to check AI matching access:', err);
+    return { allowed: false, tier: null, hasAiMatching: false, reason: 'error', message: err?.message };
+  }
+}
+
+
+/**
+ * Increment the used_rfq_leads counter for a subscription (used when a
+ * supplier opens a direct conversation from the live requirements feed).
+ */
+export async function incrementMessageQuota(companyId: string): Promise<void> {
+  const sub = await getActiveSubscription(companyId);
+  if (!sub || sub.max_rfq_leads >= 999999) return;
+  await supabase
+    .from('subscriptions')
+    .update({ used_rfq_leads: (sub.used_rfq_leads ?? 0) + 1 })
+    .eq('id', sub.id);
+}
+
+// ============================================================
+// CATEGORIES (with in-memory cache)
+// ============================================================
+let cachedCategories: Category[] | null = null;
+let cachedCategoriesTime = 0;
+const CATEGORIES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export async function getCategories(forceRefresh = false): Promise<Category[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedCategories && now - cachedCategoriesTime < CATEGORIES_CACHE_TTL) {
+    return cachedCategories;
+  }
+  const { data } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+  const result = Array.isArray(data) ? data : [];
+  if (result.length > 0) {
+    cachedCategories = result;
+    cachedCategoriesTime = now;
+  }
+  return result;
+}
+
+// ============================================================
+// COMPANIES
+// ============================================================
+export async function getCompanies(options?: {
+  search?: string;
+  verified?: boolean;
+  featured?: boolean;
+  country?: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<Company[]> {
+  let dbCompanies: Company[] = [];
+  try {
+    let query = supabase
+      .from('companies')
+      .select('*')
+      .order('rating_avg', { ascending: false })
+      .limit(options?.limit ?? 300);
+
+    if (options?.search) query = query.ilike('company_name', `%${options.search}%`);
+    if (options?.country && options.country !== 'all') query = query.eq('country', options.country);
+    if (options?.verified) query = query.eq('verification_status', 'verified');
+    if (options?.featured) query = query.eq('is_featured', true);
+    if (options?.cursor) query = query.lt('created_at', options.cursor);
+
+    const { data } = await query;
+    if (Array.isArray(data)) {
+      dbCompanies = data;
+    }
+  } catch {
+    dbCompanies = [];
+  }
+
+  const searchQ = options?.search?.trim().toLowerCase();
+  const filteredMockup = MOCKUP_VERIFIED_COMPANIES.filter((s) => {
+    if (options?.verified && !s.is_verified) return false;
+    if (options?.featured && !s.is_featured) return false;
+    if (options?.country && options.country !== 'all' && s.country.toLowerCase() !== options.country.toLowerCase()) {
+      return false;
+    }
+    if (searchQ) {
+      const matchName = s.company_name.toLowerCase().includes(searchQ);
+      const matchCity = s.city?.toLowerCase().includes(searchQ);
+      const matchCountry = s.country.toLowerCase().includes(searchQ);
+      const matchType = s.business_type?.toLowerCase().includes(searchQ);
+      const matchProducts = s.key_products?.some((p) => p.toLowerCase().includes(searchQ));
+      if (!matchName && !matchCity && !matchCountry && !matchType && !matchProducts) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Filter Alibaba Verified Suppliers dataset
+  const filteredAlibaba = ALIBABA_VERIFIED_SUPPLIERS.filter((s) => {
+    if (options?.verified && !s.is_verified) return false;
+    if (options?.featured && !s.is_featured) return false;
+    if (options?.country && options.country !== 'all' && s.country.toLowerCase() !== options.country.toLowerCase()) {
+      return false;
+    }
+    if (searchQ) {
+      const matchName = s.company_name.toLowerCase().includes(searchQ);
+      const matchCity = s.city?.toLowerCase().includes(searchQ);
+      const matchCountry = s.country.toLowerCase().includes(searchQ);
+      const matchIndustry = s.industry.toLowerCase().includes(searchQ);
+      const matchSub = s.subcategory.toLowerCase().includes(searchQ);
+      const matchProducts = s.key_products?.some((p) => p.toLowerCase().includes(searchQ));
+      if (!matchName && !matchCity && !matchCountry && !matchIndustry && !matchSub && !matchProducts) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const merged = [...filteredMockup, ...dbCompanies, ...filteredAlibaba];
+  const maxLimit = options?.limit ?? 1500;
+  return merged.slice(0, maxLimit);
+}
+
+export async function getCompanyBySlug(slug: string): Promise<Company | null> {
+  if (!slug) return null;
+  const cleanSlug = slug.trim().toLowerCase();
+
+  // 1. Check Mockup / Showcase Verified Registry
+  const mockupCompany = findMockupCompany(cleanSlug);
+  if (mockupCompany) return mockupCompany;
+
+  // 2. Check Supabase by exact slug
+  try {
+    const { data } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('slug', cleanSlug)
+      .maybeSingle();
+    if (data) return data;
+  } catch {
+    // ignore
+  }
+
+  // 3. Check Supabase by ID
+  try {
+    const { data: byId } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', cleanSlug)
+      .maybeSingle();
+    if (byId) return byId;
+  } catch {
+    // ignore
+  }
+
+  // 4. Check Alibaba dataset by exact slug
+  const alibabaSupplier = getAlibabaSupplierBySlug(cleanSlug);
+  if (alibabaSupplier) return alibabaSupplier;
+
+  // 5. Check Alibaba dataset by ID or name matching
+  const matchAlibaba = ALIBABA_VERIFIED_SUPPLIERS.find(
+    s => s.id.toLowerCase() === cleanSlug ||
+         s.slug.toLowerCase() === cleanSlug ||
+         s.company_name.toLowerCase().replace(/[^a-z0-9]/g, '-') === cleanSlug
+  );
+  if (matchAlibaba) return matchAlibaba;
+
+  // Not found in database or catalog — return null (never synthesize fake companies with fake GST/metrics)
+  return null;
+}
+
+export async function getMyCompany(): Promise<Company | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('owner_id', user.id)
+    .maybeSingle();
+  return data;
+}
+
+export async function createCompany(payload: Partial<Company>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('companies').insert(payload as Company);
+  return { error: error?.message ?? null };
+}
+
+export async function updateCompany(id: string, payload: Partial<Company>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('companies').update(payload).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// PRODUCTS
+// ============================================================
+export async function getProducts(options?: {
+  categoryId?: string;
+  categorySlug?: string;
+  country?: string;
+  companyId?: string;
+  search?: string;
+  featured?: boolean;
+  cursor?: string;
+  limit?: number;
+}): Promise<Product[]> {
+  let query = supabase
+    .from('products')
+    .select('*, companies!company_id(id,company_name,slug,verification_status,city,country,logo_url), categories!category_id(id,name,slug)')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(options?.limit ?? 150);
+
+  if (options?.categoryId) query = query.eq('category_id', options.categoryId);
+  if (options?.companyId) query = query.eq('company_id', options.companyId);
+  if (options?.search) query = query.ilike('name', `%${options.search}%`);
+  if (options?.featured) query = query.eq('is_featured', true);
+  if (options?.cursor) query = query.lt('created_at', options.cursor);
+
+  const { data } = await query;
+  let combined: Product[] = Array.isArray(data) ? [...data] : [];
+
+  // Filter and merge expanded global catalog items
+  const searchLower = options?.search ? options.search.trim().toLowerCase() : '';
+  const countryFilter = options?.country && options.country !== 'all' ? options.country.toLowerCase() : '';
+
+  const matchingGlobal = EXPANDED_GLOBAL_PRODUCTS.filter(p => {
+    if (options?.categoryId && p.category_id !== options.categoryId && p.category_slug !== options.categoryId) return false;
+    if (options?.categorySlug && p.category_slug !== options.categorySlug) return false;
+    if (options?.companyId && p.company_id !== options.companyId) return false;
+    if (countryFilter && p.country.toLowerCase() !== countryFilter) return false;
+    if (searchLower) {
+      const matchName = p.name.toLowerCase().includes(searchLower);
+      const matchCat = p.category_name.toLowerCase().includes(searchLower);
+      const matchDesc = p.description.toLowerCase().includes(searchLower);
+      if (!matchName && !matchCat && !matchDesc) return false;
+    }
+    return true;
+  });
+
+  const seenIds = new Set(combined.map(p => p.id));
+  const seenSlugs = new Set(combined.map(p => p.slug));
+
+  for (const gp of matchingGlobal) {
+    if (!seenIds.has(gp.id) && !seenSlugs.has(gp.slug)) {
+      seenIds.add(gp.id);
+      seenSlugs.add(gp.slug);
+      combined.push(mapGlobalToProduct(gp));
+    }
+  }
+
+  // Only include products from MOCKUP_SUPPLIER_PRODUCTS for public catalog exploration when no specific companyId filter is active
+  if (!options?.companyId) {
+    for (const mList of Object.values(MOCKUP_SUPPLIER_PRODUCTS)) {
+      for (const mp of mList) {
+        if (!seenIds.has(mp.id) && !seenSlugs.has(mp.slug)) {
+          seenIds.add(mp.id);
+          seenSlugs.add(mp.slug);
+          combined.push(mp);
+        }
+      }
+    }
+  }
+
+  // Only include curated products for general public discovery, never when querying a specific supplier's company
+  if (!options?.companyId) {
+    for (const cp of CURATED_INDUSTRIAL_PRODUCTS) {
+      if (options?.categoryId && cp.categorySlug !== options.categoryId) continue;
+      if (countryFilter && cp.country.toLowerCase() !== countryFilter) continue;
+      if (searchLower && !cp.name.toLowerCase().includes(searchLower)) continue;
+      if (!seenIds.has(cp.id) && !seenSlugs.has(cp.slug)) {
+        seenIds.add(cp.id);
+        seenSlugs.add(cp.slug);
+        combined.push(mapCuratedToProduct(cp));
+      }
+    }
+  }
+
+  return combined;
+}
+
+export async function getProductBySlug(slug: string): Promise<Product | null> {
+  if (!slug) return null;
+
+  // 1. Check MOCKUP_SUPPLIER_PRODUCTS
+  for (const list of Object.values(MOCKUP_SUPPLIER_PRODUCTS)) {
+    const found = list.find(p => p.slug === slug || p.id === slug);
+    if (found) return found;
+  }
+
+  // 2. Check Supabase by exact slug
+  const { data } = await supabase
+    .from('products')
+    .select('*, companies!company_id(*), categories!category_id(*)')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (data) return data;
+
+  // 2. Check Supabase by ID if slug format looks like UUID
+  if (slug.includes('-') && slug.length >= 32) {
+    const { data: byId } = await supabase
+      .from('products')
+      .select('*, companies!company_id(*), categories!category_id(*)')
+      .eq('id', slug)
+      .maybeSingle();
+    if (byId) return byId;
+  }
+
+  // 3. Check EXPANDED_GLOBAL_PRODUCTS by slug or id
+  const fromGlobal = EXPANDED_GLOBAL_PRODUCTS.find(p => p.slug === slug || p.id === slug);
+  if (fromGlobal) {
+    return mapGlobalToProduct(fromGlobal);
+  }
+
+  // 4. Check CURATED_INDUSTRIAL_PRODUCTS by slug or id
+  const fromCurated = CURATED_INDUSTRIAL_PRODUCTS.find(p => p.slug === slug || p.id === slug);
+  if (fromCurated) {
+    return mapCuratedToProduct(fromCurated);
+  }
+
+  // 5. Relaxed / fuzzy slug match in EXPANDED_GLOBAL_PRODUCTS
+  const normalized = slug.toLowerCase();
+  const fuzzyGlobal = EXPANDED_GLOBAL_PRODUCTS.find(p => 
+    p.slug.toLowerCase().includes(normalized) || 
+    normalized.includes(p.slug.toLowerCase()) ||
+    p.name.toLowerCase().includes(normalized)
+  );
+  if (fuzzyGlobal) {
+    return mapGlobalToProduct(fuzzyGlobal);
+  }
+
+  // 6. Return first matching global product as safety fallback so product page never crashes with 404
+  if (EXPANDED_GLOBAL_PRODUCTS.length > 0) {
+    return mapGlobalToProduct(EXPANDED_GLOBAL_PRODUCTS[0]);
+  }
+
+  return null;
+}
+
+/** Returns up to 8 products from the same category, excluding the current product */
+export async function getSimilarProducts(categoryId: string | null, excludeId: string): Promise<Product[]> {
+  let query = supabase
+    .from('products')
+    .select('*, companies!company_id(id,company_name,slug,verification_status,city,country,logo_url), categories!category_id(id,name,slug)')
+    .eq('is_active', true)
+    .neq('id', excludeId)
+    .limit(8);
+
+  if (categoryId) query = query.eq('category_id', categoryId);
+
+  const { data } = await query.order('view_count', { ascending: false });
+  let result: Product[] = Array.isArray(data) ? [...data] : [];
+
+  if (result.length < 6 && categoryId) {
+    const globals = EXPANDED_GLOBAL_PRODUCTS.filter(
+      p => (p.category_id === categoryId || p.category_slug === categoryId) && p.id !== excludeId
+    ).slice(0, 8 - result.length);
+    result.push(...globals.map(mapGlobalToProduct));
+  }
+
+  return result;
+}
+
+export async function createProduct(payload: Partial<Product>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('products').insert(payload as Product);
+  return { error: error?.message ?? null };
+}
+
+export async function updateProduct(id: string, payload: Partial<Product>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('products').update(payload).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+export async function deleteProduct(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+export interface MarketplaceProductFilterOptions {
+  page?: number;
+  pageSize?: number;
+  categoryId?: string;
+  categorySlug?: string;
+  categoryName?: string;
+  subCategory?: string;
+  search?: string;
+  moqMax?: number;
+  priceMin?: number;
+  priceMax?: number;
+  country?: string;
+  verifiedOnly?: boolean;
+  minRating?: number;
+  sortBy?: 'popular' | 'new' | 'price_low' | 'price_high';
+}
+
+export interface MarketplaceProductsResult {
+  products: Product[];
+  totalCount: number;
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Large-scale B2B Marketplace Product Catalog query
+ * Fetches dynamic products from Supabase with server-side pagination,
+ * multi-attribute filtering (category, search, price, MOQ, country, rating),
+ * and sorting.
+ */
+const marketplaceCache = new Map<string, { timestamp: number; data: MarketplaceProductsResult }>();
+const CACHE_TTL = 60 * 1000; // 60 seconds cache for instant loads
+
+export async function getMarketplaceProducts(
+  options: MarketplaceProductFilterOptions = {}
+): Promise<MarketplaceProductsResult> {
+  const cacheKey = JSON.stringify(options);
+  const cached = marketplaceCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = options.pageSize ?? 18;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('products')
+    .select(
+      '*, companies!company_id(id,owner_id,company_name,slug,verification_status,city,country,logo_url,rating_avg,review_count), categories!category_id(id,name,slug)',
+      { count: 'exact' }
+    )
+    .eq('is_active', true);
+
+  if (options.categoryId && options.categoryId !== 'all') {
+    query = query.eq('category_id', options.categoryId);
+  }
+
+  if (options.search && options.search.trim()) {
+    const term = options.search.trim();
+    query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`);
+  }
+
+  if (options.moqMax && options.moqMax > 0) {
+    query = query.lte('moq', options.moqMax);
+  }
+
+  if (options.priceMin !== undefined && options.priceMin > 0) {
+    query = query.gte('price_min', options.priceMin);
+  }
+
+  if (options.priceMax !== undefined && options.priceMax > 0) {
+    query = query.lte('price_max', options.priceMax);
+  }
+
+  // Sorting
+  if (options.sortBy === 'price_low') {
+    query = query.order('price_min', { ascending: true, nullsFirst: false });
+  } else if (options.sortBy === 'price_high') {
+    query = query.order('price_min', { ascending: false, nullsFirst: false });
+  } else if (options.sortBy === 'popular') {
+    query = query.order('view_count', { ascending: false });
+  } else {
+    // new / default
+    query = query.order('created_at', { ascending: false });
+  }
+
+  // If in-memory filters (country, verifiedOnly, minRating, subCategory) are active,
+  // fetch a larger candidate window from DB to guarantee a full page of results
+  const hasInMemoryFilters = Boolean(
+    (options.country && options.country !== 'all') ||
+    options.verifiedOnly ||
+    (options.minRating && options.minRating > 0) ||
+    (options.subCategory && options.subCategory !== 'all')
+  );
+
+  const fetchRange = hasInMemoryFilters ? Math.max(pageSize * 5, 80) : pageSize;
+  const dbFrom = hasInMemoryFilters ? 0 : from;
+  const dbTo = hasInMemoryFilters ? fetchRange - 1 : to;
+
+  const { data, count, error } = await query.range(dbFrom, dbTo);
+  if (error) {
+    console.error('Error fetching marketplace products:', error);
+  }
+
+  let products = (data as Product[]) || [];
+
+  // Filter for country, verified, and minRating when requested
+  if (options.country && options.country !== 'all') {
+    const targetCountry = options.country.toLowerCase();
+    products = products.filter(
+      p =>
+        p.companies?.country?.toLowerCase() === targetCountry ||
+        p.export_destinations?.some(d => d.toLowerCase() === targetCountry)
+    );
+  }
+  if (options.verifiedOnly) {
+    products = products.filter(
+      p => p.companies?.verification_status === 'verified'
+    );
+  }
+  if (options.minRating && options.minRating > 0) {
+    products = products.filter(
+      p => (p.companies?.rating_avg ?? 4.5) >= options.minRating!
+    );
+  }
+  if (options.subCategory && options.subCategory !== 'all') {
+    const sub = options.subCategory.toLowerCase();
+    products = products.filter(
+      p =>
+        p.name.toLowerCase().includes(sub) ||
+        p.tags?.some(t => t.toLowerCase().includes(sub)) ||
+        p.description?.toLowerCase().includes(sub)
+    );
+  }
+
+  const total = count ?? products.length;
+  // Slice to page size for in-memory filtered results
+  if (hasInMemoryFilters) {
+    const sliceFrom = (page - 1) * pageSize;
+    products = products.slice(sliceFrom, sliceFrom + pageSize);
+  }
+  const hasMore = to < total - 1;
+
+  const result: MarketplaceProductsResult = {
+    products,
+    totalCount: total,
+    hasMore,
+    page,
+    pageSize,
+  };
+  marketplaceCache.set(cacheKey, { timestamp: Date.now(), data: result });
+  return result;
+}
+
+// ============================================================
+// REQUIREMENTS (RFQ)
+// ============================================================
+export async function getRequirements(options?: {
+  status?: string;
+  categoryId?: string;
+  search?: string;
+  buyerId?: string;
+  cursor?: string;
+  newerThan?: string;
+  limit?: number;
+  excludeIds?: string[];
+  excludeReqNumbers?: string[];
+}): Promise<Requirement[]> {
+  let query = supabase
+    .from('requirements')
+    .select('*, profiles!buyer_id(id,full_name,email), categories!category_id(id,name,slug)')
+    .order('created_at', { ascending: false })
+    .limit(options?.limit ? options.limit * 2 : PAGE_SIZE * 2);
+
+  if (options?.status) query = query.eq('status', options.status);
+  else query = query.eq('status', 'active');
+  if (options?.categoryId) query = query.eq('category_id', options.categoryId);
+  if (options?.search) query = query.ilike('title', `%${options.search}%`);
+  if (options?.buyerId) query = query.eq('buyer_id', options.buyerId);
+  if (options?.cursor) query = query.lt('created_at', options.cursor);
+  // For live-polling: fetch only rows newer than last known timestamp
+  if (options?.newerThan) query = query.gt('created_at', options.newerThan);
+
+  const { data } = await query;
+  if (!Array.isArray(data)) return [];
+
+  const excludeIdSet = new Set(options?.excludeIds || []);
+  const excludeReqNumSet = new Set(options?.excludeReqNumbers || []);
+
+  // Strict backend-level duplicate prevention: unique ID, req_number, and title
+  const seenIds = new Set<string>();
+  const seenReqNums = new Set<string>();
+  const seenTitles = new Set<string>();
+  const uniqueItems: Requirement[] = [];
+
+  const maxItems = options?.limit ?? PAGE_SIZE;
+
+  for (const item of data) {
+    if (!item || !item.id) continue;
+    if (excludeIdSet.has(item.id)) continue;
+    if (item.req_number && excludeReqNumSet.has(item.req_number)) continue;
+
+    const normTitle = (item.title || '').trim().toLowerCase();
+    if (seenIds.has(item.id)) continue;
+    if (item.req_number && seenReqNums.has(item.req_number)) continue;
+    if (normTitle && seenTitles.has(normTitle)) continue;
+
+    seenIds.add(item.id);
+    if (item.req_number) seenReqNums.add(item.req_number);
+    if (normTitle) seenTitles.add(normTitle);
+
+    uniqueItems.push(item);
+    if (uniqueItems.length >= maxItems) break;
+  }
+
+  return uniqueItems;
+}
+
+export async function getRequirementById(id: string): Promise<Requirement | null> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  
+  let query = supabase
+    .from('requirements')
+    .select('*, profiles!buyer_id(*), categories!category_id(*)');
+
+  if (isUuid) {
+    query = query.eq('id', id);
+  } else {
+    query = query.or(`req_number.eq.${id},req_number.ilike.%${id}%,title.ilike.%${id}%`);
+  }
+
+  const { data } = await query.maybeSingle();
+  if (data) return data;
+
+  // If not found with exact/pattern match and not UUID, try fallback lookup by req_number directly
+  const { data: byReqNum } = await supabase
+    .from('requirements')
+    .select('*, profiles!buyer_id(*), categories!category_id(*)')
+    .eq('req_number', id)
+    .maybeSingle();
+
+  return byReqNum || null;
+}
+
+export async function incrementRequirementViewCount(id: string): Promise<void> {
+  try {
+    await supabase.rpc('increment_requirement_view_count', { req_id: id });
+  } catch {
+    // Non-critical metric increment fallback
+  }
+}
+
+export async function createRequirement(payload: Partial<Requirement>): Promise<{ error: string | null; id?: string }> {
+  const { data, error } = await supabase.from('requirements').insert(payload as Requirement).select('id').maybeSingle();
+  return { error: error?.message ?? null, id: data?.id };
+}
+
+// ============================================================
+// RFQ MATCHES (AI Supplier Matching)
+// ============================================================
+export interface RfqMatch {
+  id: string;
+  rfq_id: string;
+  company_id: string;
+  match_score: number;
+  score_category: number;
+  score_location: number;
+  score_moq: number;
+  score_capacity: number;
+  score_rating: number;
+  notified_at: string | null;
+  response_status: 'pending' | 'quoted' | 'dismissed' | 'expired';
+  created_at: string;
+}
+
+export async function getMatchesForRfq(rfqId: string): Promise<RfqMatch[]> {
+  const { data } = await supabase
+    .from('rfq_matches')
+    .select('*')
+    .eq('rfq_id', rfqId)
+    .order('match_score', { ascending: false })
+    .limit(50);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getMyRfqMatchScores(companyId: string): Promise<Record<string, number>> {
+  const { data } = await supabase
+    .from('rfq_matches')
+    .select('rfq_id,match_score')
+    .eq('company_id', companyId)
+    .limit(200);
+  const map: Record<string, number> = {};
+  for (const row of (data ?? []) as { rfq_id: string; match_score: number }[]) {
+    map[row.rfq_id] = row.match_score;
+  }
+  return map;
+}
+
+export async function updateRfqMatchStatus(
+  rfqId: string,
+  companyId: string,
+  status: 'quoted' | 'dismissed',
+): Promise<void> {
+  await supabase
+    .from('rfq_matches')
+    .update({ response_status: status })
+    .eq('rfq_id', rfqId)
+    .eq('company_id', companyId);
+}
+
+export async function triggerRfqMatching(rfqId: string): Promise<void> {
+  try {
+    await supabase.functions.invoke('run-rfq-matching', { body: { rfq_id: rfqId } });
+  } catch {
+    // non-blocking — matching failure must not surface to the buyer
+  }
+}
+
+export async function triggerMatchNewManufacturer(companyId: string): Promise<void> {
+  try {
+    await supabase.functions.invoke('match-new-manufacturer', { body: { company_id: companyId } });
+  } catch {
+    // non-blocking — matching failure must not block signup
+  }
+}
+
+export async function updateRequirement(id: string, payload: Partial<Requirement>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('requirements').update(payload).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// QUOTATIONS
+// ============================================================
+export async function getQuotationsForRequirement(requirementId: string): Promise<Quotation[]> {
+  const { data } = await supabase
+    .from('quotations')
+    .select('*, companies!supplier_company_id(id,company_name,slug,verification_status,city,country,logo_url,years_in_business)')
+    .eq('requirement_id', requirementId)
+    .order('created_at', { ascending: false });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getMyQuotations(supplierId: string): Promise<Quotation[]> {
+  const { data } = await supabase
+    .from('quotations')
+    .select('*, requirements!requirement_id(id,title,quantity,quantity_unit,destination_country,deadline)')
+    .eq('supplier_id', supplierId)
+    .order('created_at', { ascending: false })
+    .limit(PAGE_SIZE);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createQuotation(payload: Partial<Quotation>): Promise<{ error: string | null }> {
+  // Database backend validation: verify subscription before insert
+  const supplierId = payload.supplier_id;
+  const companyId = payload.supplier_company_id;
+
+  if (companyId) {
+    const sub = await getActiveSubscription(companyId);
+    if (!sub) {
+      return {
+        error: 'Active paid subscription required to send quotations. Choose Starter (₹2,500), Business (₹7,500), or Growth (₹15,000).'
+      };
+    }
+    if (sub.max_rfq_leads < 999999 && (sub.used_rfq_leads ?? 0) >= sub.max_rfq_leads) {
+      return {
+        error: `Monthly post response quota exceeded (${sub.used_rfq_leads}/${sub.max_rfq_leads} used). Upgrade your plan to send more responses.`
+      };
+    }
+  } else if (supplierId) {
+    try {
+      const { data: isSubscribed, error: rpcErr } = await supabase.rpc('is_supplier_subscribed', { p_user_id: supplierId });
+      if (rpcErr) {
+        console.warn('Subscription RPC check error:', rpcErr.message);
+      } else if (!isSubscribed) {
+        return {
+          error: 'Active paid subscription required to send quotations. Choose Starter (₹2,500), Business (₹7,500), or Growth (₹15,000).'
+        };
+      }
+    } catch (e: any) {
+      console.warn('Subscription check error:', e);
+    }
+  }
+
+  const { error } = await supabase.from('quotations').insert(payload as Quotation);
+  if (error) {
+    if (error.message?.includes('subscription') || error.code === 'P0001' || error.message?.includes('violates row-level security')) {
+      return {
+        error: 'Active paid subscription required to send quotations. Choose Starter (₹2,500), Business (₹7,500), or Growth (₹15,000).'
+      };
+    }
+    return { error: error.message };
+  }
+
+  // Increment used quota if companyId is available
+  if (companyId) {
+    await incrementMessageQuota(companyId).catch(() => {});
+  }
+
+  return { error: null };
+}
+
+export async function updateQuotationStatus(id: string, status: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('quotations').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// CONVERSATIONS & MESSAGES
+// ============================================================
+export async function getConversations(userId: string, companyId?: string): Promise<Conversation[]> {
+  try {
+    let orFilter = `buyer_id.eq.${userId},supplier_id.eq.${userId}`;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (companyId && uuidRegex.test(companyId)) {
+      orFilter += `,supplier_company_id.eq.${companyId}`;
+    }
+    const { data } = await supabase
+      .from('conversations')
+      .select('*, companies!supplier_company_id(id,company_name,slug,logo_url), buyer:profiles!buyer_id(id,full_name), supplier:profiles!supplier_id(id,full_name), product:products!product_id(id,name,slug,price_min,price_max,price_currency,moq,moq_unit)')
+      .or(orFilter)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(50);
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.warn('Error fetching conversations:', e);
+    return [];
+  }
+}
+
+export async function getMessages(conversationId: string, cursor?: string): Promise<Message[]> {
+  let query = supabase
+    .from('messages')
+    .select('*, sender:profiles!sender_id(id,full_name,avatar_url)')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (cursor) query = query.lt('created_at', cursor);
+  const { data } = await query;
+  return Array.isArray(data) ? (data as Message[]).reverse() : [];
+}
+
+export async function sendMessage(conversationId: string, content: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('messages').insert({ conversation_id: conversationId, content });
+  return { error: error?.message ?? null };
+}
+
+// ─── Subscription-gated chat via Edge Function ───────────────────────────────
+
+export type ChatAuthError =
+  | 'not_authenticated'
+  | 'buyer_not_subscribed'
+  | 'supplier_not_subscribed'
+  | 'conversation_creation_failed'
+  | 'missing_supplier_info'
+  | 'cannot_chat_with_self'
+  | string;
+
+export interface ChatAuthResult {
+  conversation_id: string | null;
+  buyer_eligible: boolean | null;
+  supplier_eligible: boolean | null;
+  error: ChatAuthError | null;
+}
+
+/**
+ * Server-side: verifies both parties' subscriptions and gets/creates the conversation.
+ * Returns conversation_id on success, error code on failure.
+ */
+export async function initLiveChat(params: {
+  supplier_id: string;
+  supplier_company_id: string;
+  product_id?: string | null;
+  requirement_id?: string | null;
+}): Promise<ChatAuthResult> {
+  const { data, error } = await supabase.functions.invoke<ChatAuthResult>('chat-auth', {
+    body: params,
+    method: 'POST',
+  });
+  if (error) {
+    const msg = await error?.context?.text?.();
+    try {
+      const parsed = JSON.parse(msg ?? '{}');
+      return { conversation_id: null, buyer_eligible: null, supplier_eligible: null, error: parsed.error ?? 'unknown' };
+    } catch {
+      return { conversation_id: null, buyer_eligible: null, supplier_eligible: null, error: msg ?? 'unknown' };
+    }
+  }
+  return data ?? { conversation_id: null, buyer_eligible: null, supplier_eligible: null, error: 'unknown' };
+}
+
+/**
+ * Server-side: sends a message — subscription verified server-side.
+ */
+export async function sendSecureMessage(conversationId: string, content: string): Promise<{ message: Message | null; error: string | null }> {
+  const { data, error } = await supabase.functions.invoke<{ message: Message }>('send-chat-message', {
+    body: { conversation_id: conversationId, content },
+    method: 'POST',
+  });
+  if (error) {
+    const msg = await error?.context?.text?.();
+    try {
+      const parsed = JSON.parse(msg ?? '{}');
+      return { message: null, error: parsed.error ?? 'send_failed' };
+    } catch {
+      return { message: null, error: msg ?? 'send_failed' };
+    }
+  }
+  return { message: data?.message ?? null, error: null };
+}
+
+/**
+ * Mark all messages in a conversation as read from the given user's perspective.
+ */
+export async function markConversationRead(conversationId: string, userId: string, role: 'buyer' | 'supplier'): Promise<void> {
+  if (role === 'buyer') {
+    await supabase.from('conversations').update({ buyer_unread: 0 }).eq('id', conversationId).eq('buyer_id', userId);
+  } else {
+    await supabase.from('conversations').update({ supplier_unread: 0 }).eq('id', conversationId).eq('supplier_id', userId);
+  }
+}
+
+export async function getOrCreateConversation(buyerId: string, supplierId: string, supplierCompanyId: string, requirementId?: string): Promise<{ id: string | null; error: string | null }> {
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('buyer_id', buyerId)
+    .eq('supplier_id', supplierId)
+    .maybeSingle();
+
+  if (existing) return { id: existing.id, error: null };
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .insert({ buyer_id: buyerId, supplier_id: supplierId, supplier_company_id: supplierCompanyId, requirement_id: requirementId ?? null })
+    .select('id')
+    .maybeSingle();
+
+  return { id: data?.id ?? null, error: error?.message ?? null };
+}
+
+
+// ============================================================
+// DIRECT SUPPLIER CHAT & INQUIRY SYSTEM
+// Enables anyone (buyer or guest) to send messages to any supplier
+// and routes seamlessly to Supplier Dashboard
+// ============================================================
+
+const INQUIRIES_STORAGE_KEY = 'bulkskart_supplier_inquiries_store';
+
+const DEFAULT_MOCK_INQUIRIES: SupplierInquiry[] = [
+  {
+    id: 'inq-seed-001',
+    conversation_id: 'conv-inq-seed-001',
+    supplier_company_id: 'ref-mfr-abc',
+    supplier_name: 'ABC Precision Engineering Ltd',
+    sender_name: 'Vikram Malhotra',
+    sender_email: 'v.malhotra@indotech-solutions.in',
+    sender_phone: '+91 98201 44892',
+    sender_company: 'IndoTech Global Solutions Pvt Ltd',
+    subject: 'RFQ: 2,500 Units Industrial Microcontroller & CNC Assemblies',
+    message: 'Hello team, we are expanding our smart IoT meter production line and need 2,500 units by Q3. Could you share technical datasheet, MOQ tier pricing, and estimated FOB sea freight transit time to Mumbai Port? Also confirm IEC 60730 standard compliance.',
+    product_id: 'prod-abc-1',
+    product_name: 'Industrial 32-Bit ARM Cortex-M4 Microcontroller LQFP-64',
+    product_slug: 'industrial-arm-cortex-m4-microcontroller-lqfp64',
+    target_quantity: 2500,
+    quantity_unit: 'Pieces',
+    created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    status: 'replied',
+    replies: [
+      {
+        id: 'rep-seed-001-1',
+        sender: 'supplier',
+        sender_name: 'Rajesh Sharma (Key Account Mgr)',
+        content: 'Dear Vikram, thank you for reaching out! Yes, all our MCUs are IEC 60730 Class B certified. For 2,500 units, our FOB unit price is $2.15/pc with a 14-day lead time. I will email the full calibration report shortly.',
+        created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+      }
+    ]
+  },
+  {
+    id: 'inq-seed-002',
+    conversation_id: 'conv-inq-seed-002',
+    supplier_company_id: 'ref-mfr-shenzhen',
+    supplier_name: 'Shenzhen MicroTech Semiconductor Co., Ltd.',
+    sender_name: 'Elena Rostova',
+    sender_email: 'e.rostova@nordic-embedded.eu',
+    sender_phone: '+49 89 2345 6789',
+    sender_company: 'Nordic Embedded Systems GmbH',
+    subject: 'Custom 8-Layer Rigid-Flex SMT PCB Production Quotation',
+    message: 'We are looking for turnkey assembly of 1,200 rigid-flex boards with automated optical inspection and flying probe test. We have the Gerber and BOM files ready. Can you sign our NDA and share your current factory lead time?',
+    product_id: 'prod-semi-002',
+    product_name: 'Custom High-Density 8-Layer Rigid-Flex SMT PCB Assembly',
+    product_slug: 'custom-high-density-rigid-flex-pcb-assembly',
+    target_quantity: 1200,
+    quantity_unit: 'Boards',
+    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    status: 'new',
+    replies: []
+  },
+  {
+    id: 'inq-seed-003',
+    conversation_id: 'conv-inq-seed-003',
+    supplier_company_id: 'ref-mfr-milan',
+    supplier_name: 'Milan Luxury BioPackaging S.r.l.',
+    sender_name: 'Claire Dubois',
+    sender_email: 'c.dubois@parfum-elysees.fr',
+    sender_phone: '+33 1 42 68 55 00',
+    sender_company: "Maison d'Élysées Parfumerie",
+    subject: 'Bespoke Rigid Gift Boxes with Gold Foil Stamping',
+    message: 'Bonjour, we require 8,000 luxury magnetic boxes with velvet inserts for our holiday fragrance launch. Need FSC certification verification and sample proofing dispatched to Paris within 7 days.',
+    product_id: 'prod-milan-001',
+    product_name: 'Luxury Rigid Cosmetic Gift Box with Magnetic Flap',
+    product_slug: 'luxury-rigid-cosmetic-gift-box-magnetic-flap',
+    target_quantity: 8000,
+    quantity_unit: 'Pieces',
+    created_at: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+    status: 'new',
+    replies: []
+  },
+  {
+    id: 'inq-seed-004',
+    conversation_id: 'conv-inq-seed-004',
+    supplier_company_id: 'ref-mfr-zurich',
+    supplier_name: 'Zurich MedTech Precision Instruments AG',
+    sender_name: 'Dr. Marcus Vance',
+    sender_email: 'm.vance@apex-implants.com',
+    sender_phone: '+1 (617) 555-0199',
+    sender_company: 'Apex Orthopedic Implants USA',
+    subject: 'Titanium Grade 5 Trauma Plate OEM Supply Agreement',
+    message: 'We would like to inspect your ISO 13485 cleanroom audit records and discuss an initial batch of 200 pediatric locking plate sets. Are cleanroom lot certificates provided with each shipment?',
+    product_id: 'prod-zurich-001',
+    product_name: 'Titanium Grade 5 Orthopedic Trauma Locking Plates & Screws',
+    product_slug: 'titanium-grade-5-orthopedic-trauma-locking-plates',
+    target_quantity: 200,
+    quantity_unit: 'Sets',
+    created_at: new Date(Date.now() - 1000 * 60 * 720).toISOString(),
+    status: 'replied',
+    replies: [
+      {
+        id: 'rep-seed-004-1',
+        sender: 'supplier',
+        sender_name: 'Dr. Beatrix Meier (Quality Assurance)',
+        content: 'Dear Dr. Vance, ISO 13485 and CE MDR Class IIb certificates are attached to our supplier dossier. Every lot comes with full 3.1 chemical & mechanical mill certificates and particle count inspection.',
+        created_at: new Date(Date.now() - 1000 * 60 * 600).toISOString(),
+      }
+    ]
+  }
+];
+
+function getLocalInquiries(): SupplierInquiry[] {
+  try {
+    const raw = localStorage.getItem(INQUIRIES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalInquiries(items: SupplierInquiry[]) {
+  try {
+    localStorage.setItem(INQUIRIES_STORAGE_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('bulkskart:inquiry_updated'));
+  } catch {
+    // Ignore storage quota
+  }
+}
+
+export async function sendDirectSupplierInquiry(params: {
+  supplier_company_id: string;
+  supplier_id?: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
+  product_slug?: string | null;
+  buyer_id?: string | null;
+  sender_name: string;
+  sender_email: string;
+  sender_phone?: string;
+  sender_company?: string;
+  subject?: string;
+  message: string;
+  target_quantity?: number;
+  quantity_unit?: string;
+}): Promise<{ conversation_id: string | null; inquiry: SupplierInquiry | null; error: string | null }> {
+  try {
+    const inquiryId = `inq-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const convId = `conv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    // 1. Resolve company name for title
+    let targetCompanyName = 'Verified Supplier';
+    try {
+      const co = await getCompanyBySlug(params.supplier_company_id);
+      if (co?.company_name) targetCompanyName = co.company_name;
+    } catch {
+      // Ignore
+    }
+
+    const newInquiry: SupplierInquiry = {
+      id: inquiryId,
+      conversation_id: convId,
+      supplier_company_id: params.supplier_company_id,
+      supplier_name: targetCompanyName,
+      sender_name: params.sender_name,
+      sender_email: params.sender_email,
+      sender_phone: params.sender_phone,
+      sender_company: params.sender_company,
+      subject: params.subject || `Inquiry for ${targetCompanyName}`,
+      message: params.message,
+      product_id: params.product_id || null,
+      product_name: params.product_name || null,
+      product_slug: params.product_slug || null,
+      target_quantity: params.target_quantity,
+      quantity_unit: params.quantity_unit || 'Units',
+      created_at: new Date().toISOString(),
+      status: 'new',
+      replies: [],
+    };
+
+    // Store in local inquiry cache for immediate display
+    const currentList = getLocalInquiries();
+    saveLocalInquiries([newInquiry, ...currentList.filter(i => i.id !== inquiryId)]);
+
+    // 2. Also try inserting into Supabase instant_quote_requests or conversations if UUIDs match
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (params.buyer_id && uuidRegex.test(params.buyer_id) && uuidRegex.test(params.supplier_company_id)) {
+      try {
+        await supabase.from('instant_quote_requests').insert({
+          buyer_id: params.buyer_id,
+          supplier_company_id: params.supplier_company_id,
+          product_id: params.product_id && uuidRegex.test(params.product_id) ? params.product_id : null,
+          quantity: params.target_quantity || 100,
+          quantity_unit: params.quantity_unit || 'Units',
+          message: `${params.subject ? `[${params.subject}] ` : ''}${params.message} (Contact: ${params.sender_name}, ${params.sender_email}, ${params.sender_phone || 'N/A'})`,
+          status: 'pending',
+        });
+      } catch (dbErr) {
+        console.warn('Instant quote fallback log:', dbErr);
+      }
+    }
+
+    return { conversation_id: convId, inquiry: newInquiry, error: null };
+  } catch (err: any) {
+    return { conversation_id: null, inquiry: null, error: err?.message || 'Failed to send inquiry' };
+  }
+}
+
+export function getSupplierInquiries(companyId?: string, userId?: string): SupplierInquiry[] {
+  const all = getLocalInquiries();
+  if (!companyId && !userId) return [];
+  return all.filter(item => {
+    if (companyId && item.supplier_company_id === companyId) {
+      return true;
+    }
+    if (userId && (item as any).supplier_id === userId) {
+      return true;
+    }
+    return false;
+  });
+}
+
+export function replyToSupplierInquiry(
+  inquiryId: string,
+  replyContent: string,
+  senderName = 'Supplier'
+): { success: boolean; reply: InquiryReply | null } {
+  try {
+    const list = getLocalInquiries();
+    const idx = list.findIndex(i => i.id === inquiryId);
+    if (idx === -1) return { success: false, reply: null };
+
+    const newReply: InquiryReply = {
+      id: `rep-${Date.now()}`,
+      sender: 'supplier',
+      sender_name: senderName,
+      content: replyContent,
+      created_at: new Date().toISOString(),
+    };
+
+    const updated = {
+      ...list[idx],
+      status: 'replied' as const,
+      replies: [...(list[idx].replies || []), newReply],
+    };
+
+    list[idx] = updated;
+    saveLocalInquiries([...list]);
+    return { success: true, reply: newReply };
+  } catch {
+    return { success: false, reply: null };
+  }
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+export async function getNotifications(userId: string): Promise<Notification[]> {
+  const { data } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId).eq('is_read', false);
+}
+
+// ============================================================
+// PROFILE
+// ============================================================
+export async function getProfile(userId: string): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  return data;
+}
+
+export async function updateProfile(userId: string, payload: Partial<Profile>): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+export async function adminGetAllProfiles(cursor?: string): Promise<Profile[]> {
+  let query = supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(PAGE_SIZE);
+  if (cursor) query = query.lt('created_at', cursor);
+  const { data } = await query;
+  return Array.isArray(data) ? data : [];
+}
+
+export async function adminGetPendingCompanies(): Promise<Company[]> {
+  const { data } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('verification_status', 'pending')
+    .order('created_at', { ascending: false });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function adminUpdateCompanyVerification(id: string, status: string): Promise<{ error: string | null }> {
+  const payload: Partial<Company> = {
+    verification_status: status as Company['verification_status'],
+    updated_at: new Date().toISOString(),
+  };
+  if (status === 'verified') payload.verified_at = new Date().toISOString();
+  const { error } = await supabase.from('companies').update(payload).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+export async function adminGetReports(): Promise<any[]> {
+  const { data } = await supabase
+    .from('reports')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(PAGE_SIZE);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function adminUpdateUserStatus(userId: string, status: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// CERTIFICATIONS
+// ============================================================
+export async function getCompanyCertifications(companyId: string): Promise<CompanyCertification[]> {
+  try {
+    const { data } = await supabase
+      .from('company_certifications')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: true });
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch {
+    // ignore
+  }
+
+  // Check Mockup Registry only if companyId is a known mock identifier
+  if (companyId.startsWith('ref-mfr-') && MOCKUP_SUPPLIER_CERTS[companyId]) {
+    return MOCKUP_SUPPLIER_CERTS[companyId];
+  }
+
+  // Real manufacturers show only their genuine uploaded & verified certificates
+  return [];
+}
+
+export async function upsertCertification(payload: Partial<CompanyCertification>): Promise<{ error: string | null; id?: string }> {
+  if (payload.id) {
+    const { error } = await supabase
+      .from('company_certifications')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', payload.id);
+    return { error: error?.message ?? null, id: payload.id };
+  }
+  const { data, error } = await supabase
+    .from('company_certifications')
+    .insert(payload as CompanyCertification)
+    .select('id')
+    .maybeSingle();
+  return { error: error?.message ?? null, id: data?.id };
+}
+
+export async function deleteCertification(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('company_certifications').delete().eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// ORDERS
+// ============================================================
+export async function createOrder(payload: {
+  quotation_id: string;
+  requirement_id?: string | null;
+  buyer_id: string;
+  supplier_id?: string | null;
+  supplier_company_id: string;
+  total_amount: number;
+  currency: string;
+  quantity: number;
+  quantity_unit?: string | null;
+  notes?: string | null;
+}): Promise<{ data: { id: string; order_number: string } | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('orders')
+    .insert({ ...payload, milestone: 'quote_accepted' })
+    .select('id,order_number')
+    .maybeSingle();
+  return { data: data as { id: string; order_number: string } | null, error: error?.message ?? null };
+}
+
+export async function getOrdersForBuyer(buyerId: string): Promise<OrderRow[]> {
+  const { data } = await supabase
+    .from('orders')
+    .select('id,order_number,milestone,total_amount,currency,quantity,quantity_unit,created_at,updated_at,quotations(unit_price,payment_terms,delivery_terms),requirements(title,quantity_unit),companies:supplier_company_id(company_name,slug,logo_url,verification_status)')
+    .eq('buyer_id', buyerId)
+    .order('created_at', { ascending: false });
+  return (data ?? []) as unknown as OrderRow[];
+}
+
+export async function getOrdersForSupplier(companyId: string): Promise<OrderRow[]> {
+  const { data } = await supabase
+    .from('orders')
+    .select('id,order_number,milestone,total_amount,currency,quantity,quantity_unit,created_at,updated_at,quotations(unit_price,payment_terms,delivery_terms),requirements(title,quantity_unit),buyer:profiles!buyer_id(full_name,avatar_url)')
+    .eq('supplier_company_id', companyId)
+    .order('created_at', { ascending: false });
+  return (data ?? []) as unknown as OrderRow[];
+}
+
+export async function addMilestoneLog(orderId: string, milestone: string, changedBy: string, notes?: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('order_milestone_logs')
+    .insert({ order_id: orderId, milestone, changed_by: changedBy, notes: notes ?? null });
+  return { error: error?.message ?? null };
+}
+
+// ============================================================
+// ORDER STATUS PIPELINE (5-stage)
+// ============================================================
+import type { OrderStatusHistory, PipelineStatus } from '@/types/types';
+
+export async function getOrderStatusHistory(orderId: string): Promise<OrderStatusHistory[]> {
+  const { data } = await supabase
+    .from('order_status_history')
+    .select('*, changer:changed_by(full_name,avatar_url)')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+  return Array.isArray(data) ? data as unknown as OrderStatusHistory[] : [];
+}
+
+export async function advanceOrderStatus(
+  orderId: string,
+  fromStatus: PipelineStatus,
+  toStatus: PipelineStatus,
+  changerRole: 'buyer' | 'supplier' | 'admin',
+  notes?: string,
+  trackingDetails?: { courier?: string; number?: string; eta?: string },
+): Promise<{ error: string | null }> {
+  const updatePayload: Record<string, unknown> = {
+    order_status: toStatus,
+    updated_at: new Date().toISOString(),
+  };
+  if (trackingDetails?.courier)  updatePayload.tracking_courier = trackingDetails.courier;
+  if (trackingDetails?.number)   updatePayload.tracking_number  = trackingDetails.number;
+  if (trackingDetails?.eta)      updatePayload.tracking_eta     = trackingDetails.eta;
+
+  const { error: orderErr } = await supabase
+    .from('orders')
+    .update(updatePayload)
+    .eq('id', orderId);
+  if (orderErr) return { error: orderErr.message };
+
+  const { data: me } = await supabase.auth.getUser();
+  const { error: histErr } = await supabase
+    .from('order_status_history')
+    .insert({
+      order_id: orderId,
+      from_status: fromStatus,
+      to_status: toStatus,
+      changed_by: me.user!.id,
+      changer_role: changerRole,
+      notes: notes ?? null,
+    });
+  return { error: histErr?.message ?? null };
+}
+
+export async function cancelOrder(
+  orderId: string,
+  fromStatus: PipelineStatus,
+  changerRole: 'buyer' | 'supplier' | 'admin',
+  reason: string,
+): Promise<{ error: string | null }> {
+  const { error: orderErr } = await supabase
+    .from('orders')
+    .update({ order_status: 'cancelled', cancelled_reason: reason, updated_at: new Date().toISOString() })
+    .eq('id', orderId);
+  if (orderErr) return { error: orderErr.message };
+
+  const { data: me } = await supabase.auth.getUser();
+  const { error: histErr } = await supabase
+    .from('order_status_history')
+    .insert({
+      order_id: orderId,
+      from_status: fromStatus,
+      to_status: 'cancelled' as PipelineStatus,
+      changed_by: me.user!.id,
+      changer_role: changerRole,
+      notes: reason,
+    });
+  return { error: histErr?.message ?? null };
+}
+
+// ============================================================
+// REVIEWS
+// ============================================================
+export async function getCompanyReviews(companyId: string): Promise<CompanyReview[]> {
+  try {
+    const { data } = await supabase
+      .from('company_reviews')
+      .select('*, reviewer:profiles!reviewer_id(id,full_name,avatar_url)')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (Array.isArray(data) && data.length > 0) return data;
+  } catch {
+    // ignore
+  }
+
+  // Check Mockup Registry only for known demo supplier IDs
+  if (companyId.startsWith('ref-mfr-') && MOCKUP_SUPPLIER_REVIEWS[companyId]) {
+    return MOCKUP_SUPPLIER_REVIEWS[companyId];
+  }
+
+  // Authentic companies only show real verified buyer reviews
+  return [];
+}
+
+export async function createCompanyReview(payload: Partial<CompanyReview>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('company_reviews').insert(payload as CompanyReview);
+  return { error: error?.message ?? null };
+}
