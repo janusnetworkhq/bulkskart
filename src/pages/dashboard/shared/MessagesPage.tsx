@@ -3,13 +3,21 @@ import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { getConversations, getMessages, sendSecureMessage, markConversationRead, getSupplierInquiries, replyToSupplierInquiry } from '@/lib/api';
+import {
+  getConversations,
+  getMessages,
+  sendSecureMessage,
+  markConversationRead,
+  getSupplierInquiries,
+  replyToSupplierInquiry,
+  ensureManufacturerWelcomeLeads,
+} from '@/lib/api';
 import type { Conversation, Message, SupplierInquiry } from '@/types/types';
 import { supabase } from '@/db/supabase';
 import {
   Send, MessageSquare, Package, Loader2, WifiOff, RefreshCw, ArrowRight, ArrowLeft,
   Download, Building2, Sparkles, ChevronDown, ChevronUp, Mail, Phone, User, Clock,
-  CheckCircle2, BadgeCheck, FileText, Globe
+  CheckCircle2, BadgeCheck, FileText, Globe, Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PageMeta from '@/components/common/PageMeta';
@@ -19,7 +27,7 @@ import { exportChatTranscript } from '@/utils/exportChatTranscript';
 import ProtectedContact from '@/components/common/ProtectedContact';
 
 export default function MessagesPage() {
-  const { user, profile, company } = useAuth();
+  const { user, profile, company, isPaidSubscriber } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [inquiries, setInquiries] = useState<SupplierInquiry[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
@@ -38,6 +46,20 @@ export default function MessagesPage() {
   const [showAiReplies, setShowAiReplies] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const isBuyer = profile?.role === 'buyer';
+  /** Suppliers may browse inbox free; replies require an active paid plan */
+  const canReplyAsSupplier = isBuyer || Boolean(isPaidSubscriber);
+  const subscriptionPath = isBuyer ? '/pricing' : '/dashboard/supplier/subscription';
+
+  const requirePaidReply = useCallback(() => {
+    if (canReplyAsSupplier) return false;
+    toast.message('Subscription required to reply', {
+      description: 'Activate a manufacturer plan to send quotes and chat replies.',
+    });
+    setSubExpired(true);
+    return true;
+  }, [canReplyAsSupplier]);
 
   // AI Chat Assistant: Suggested replies for manufacturers
   const aiChatSuggestions = useMemo(() => {
@@ -62,9 +84,6 @@ export default function MessagesPage() {
     ];
   }, [selectedConv, selectedInquiry]);
 
-  const isBuyer = profile?.role === 'buyer';
-  const subscriptionPath = isBuyer ? '/pricing' : '/dashboard/supplier/subscription';
-
   // ── Load conversations and direct profile inquiries ─────────────────────
   const loadConversations = useCallback(async () => {
     setLoadingConvs(true);
@@ -73,6 +92,10 @@ export default function MessagesPage() {
       data = await getConversations(user.id, company?.id);
       setConversations(data);
     }
+    // Manufacturers: ensure 5 sample lead messages exist (one-time, automatic)
+    if (user && company?.id && profile?.role === 'supplier') {
+      ensureManufacturerWelcomeLeads(company.id, company.company_name || 'Your Factory');
+    }
     const inqs = getSupplierInquiries(company?.id, user?.id);
     setInquiries(inqs);
     setLoadingConvs(false);
@@ -80,7 +103,7 @@ export default function MessagesPage() {
       if (inqs.length > 0) setSelectedInquiry(inqs[0]);
       else if (data.length > 0) setSelectedConv(data[0]);
     }
-  }, [user, company?.id, selectedConv, selectedInquiry]);
+  }, [user, company?.id, company?.company_name, profile?.role, selectedConv, selectedInquiry]);
 
   useEffect(() => {
     loadConversations();
@@ -158,6 +181,7 @@ export default function MessagesPage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !selectedConv || sending) return;
+    if (requirePaidReply()) return;
     setSending(true);
     const { error } = await sendSecureMessage(selectedConv.id, input.trim());
     setSending(false);
@@ -219,6 +243,7 @@ export default function MessagesPage() {
   const handleSendInquiryReply = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInquiry || !inquiryReply.trim() || replyingInquiry) return;
+    if (requirePaidReply()) return;
     setReplyingInquiry(true);
     const senderName = profile?.full_name || company?.company_name || 'Supplier Sales Team';
     const res = replyToSupplierInquiry(selectedInquiry.id, inquiryReply.trim(), senderName);
@@ -239,6 +264,11 @@ export default function MessagesPage() {
     } else {
       toast.error('Failed to send reply');
     }
+  };
+
+  const insertQuickReply = (text: string) => {
+    if (requirePaidReply()) return;
+    setInquiryReply(text);
   };
 
   const handleExportInquiryTranscript = () => {
@@ -564,55 +594,78 @@ export default function MessagesPage() {
                 })}
               </div>
 
-              {/* Inquiry Quick AI Replies */}
+              {/* Inquiry Quick AI Replies — locked for unpaid manufacturers */}
               <div className="px-4 py-2 bg-muted/40 border-t border-border flex items-center gap-2 overflow-x-auto">
                 <span className="text-[11px] font-bold text-foreground flex items-center gap-1 shrink-0">
                   <Sparkles className="w-3 h-3 text-primary" /> Quick Quote & Replies:
                 </span>
                 <button
                   type="button"
-                  onClick={() => setInquiryReply(`Dear ${selectedInquiry.sender_name}, based on your requested target volume of ${selectedInquiry.target_quantity || '1,000'} ${selectedInquiry.quantity_unit || 'units'}, our direct factory price is $2.15/unit FOB. Lead time is 12–14 days with standard export seaworthy packaging. Shall we prepare a formal proforma invoice?`)}
+                  onClick={() => insertQuickReply(`Dear ${selectedInquiry.sender_name}, based on your requested target volume of ${selectedInquiry.target_quantity || '1,000'} ${selectedInquiry.quantity_unit || 'units'}, our direct factory price is $2.15/unit FOB. Lead time is 12–14 days with standard export seaworthy packaging. Shall we prepare a formal proforma invoice?`)}
                   className="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 font-semibold rounded-full px-2.5 py-1 whitespace-nowrap transition-colors"
                 >
                   ⚡ Send Pricing Quote ($/unit)
                 </button>
                 <button
                   type="button"
-                  onClick={() => setInquiryReply(`Hello ${selectedInquiry.sender_name}, thank you for your inquiry! We have ready factory capacity for ${selectedInquiry.product_name || 'this requirement'}. Please confirm your destination port so we can include CIF freight estimates.`)}
+                  onClick={() => insertQuickReply(`Hello ${selectedInquiry.sender_name}, thank you for your inquiry! We have ready factory capacity for ${selectedInquiry.product_name || 'this requirement'}. Please confirm your destination port so we can include CIF freight estimates.`)}
                   className="text-[10px] bg-card hover:bg-muted border border-border rounded-full px-2.5 py-1 whitespace-nowrap text-foreground transition-colors"
                 >
                   Accept & Request Port
                 </button>
                 <button
                   type="button"
-                  onClick={() => setInquiryReply(`Hi ${selectedInquiry.sender_name}, our factory is ISO 9001 and ISO 14001 certified. We provide 3.1 mill test certificates, pre-shipment inspection reports, and sample testing for quality clearance.`)}
+                  onClick={() => insertQuickReply(`Hi ${selectedInquiry.sender_name}, our factory is ISO 9001 and ISO 14001 certified. We provide 3.1 mill test certificates, pre-shipment inspection reports, and sample testing for quality clearance.`)}
                   className="text-[10px] bg-card hover:bg-muted border border-border rounded-full px-2.5 py-1 whitespace-nowrap text-foreground transition-colors"
                 >
                   Quality & Certifications
                 </button>
                 <button
                   type="button"
-                  onClick={() => setInquiryReply(`Hello ${selectedInquiry.sender_name}, we have sent product technical specifications to your email ${selectedInquiry.sender_email}. Feel free to contact our engineering desk.`)}
+                  onClick={() => insertQuickReply(`Hello ${selectedInquiry.sender_name}, we have sent product technical specifications to your email ${selectedInquiry.sender_email}. Feel free to contact our engineering desk.`)}
                   className="text-[10px] bg-card hover:bg-muted border border-border rounded-full px-2.5 py-1 whitespace-nowrap text-foreground transition-colors"
                 >
                   Confirm Email Dispatch
                 </button>
               </div>
 
-              {/* Reply Form */}
-              <form onSubmit={handleSendInquiryReply} className="px-4 py-3 border-t border-border flex gap-2 shrink-0 bg-background">
-                <Input
-                  value={inquiryReply}
-                  onChange={e => setInquiryReply(e.target.value)}
-                  placeholder={`Reply to ${selectedInquiry.sender_name}…`}
-                  className="flex-1 bg-card border-border text-foreground"
-                  disabled={replyingInquiry}
-                  maxLength={4000}
-                />
-                <Button type="submit" disabled={replyingInquiry || !inquiryReply.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 font-bold">
-                  {replyingInquiry ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </Button>
-              </form>
+              {/* Reply Form — subscription gate for unpaid manufacturers */}
+              {!canReplyAsSupplier ? (
+                <div className="px-4 py-4 border-t border-border shrink-0 bg-amber-500/5">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-foreground">Subscribe to reply to buyers</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          You can read all inquiries. An active manufacturer plan unlocks quotes and chat replies.
+                        </p>
+                      </div>
+                    </div>
+                    <Link to={subscriptionPath} className="shrink-0 w-full sm:w-auto">
+                      <Button className="w-full sm:w-auto bg-[#FF5A00] hover:bg-[#e04f00] text-white font-bold gap-1.5 text-xs h-9">
+                        <Sparkles className="w-3.5 h-3.5" /> View Plans &amp; Subscribe
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSendInquiryReply} className="px-4 py-3 border-t border-border flex gap-2 shrink-0 bg-background">
+                  <Input
+                    value={inquiryReply}
+                    onChange={e => setInquiryReply(e.target.value)}
+                    placeholder={`Reply to ${selectedInquiry.sender_name}…`}
+                    className="flex-1 bg-card border-border text-foreground"
+                    disabled={replyingInquiry}
+                    maxLength={4000}
+                  />
+                  <Button type="submit" disabled={replyingInquiry || !inquiryReply.trim()} className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 font-bold">
+                    {replyingInquiry ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
+                </form>
+              )}
             </div>
           ) : selectedConv ? (
             <>
@@ -676,23 +729,53 @@ export default function MessagesPage() {
                 </div>
               )}
 
-              {/* Subscription expired overlay */}
-              {subExpired ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-6">
-                  <div className="w-14 h-14 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center">
-                    <MessageSquare className="w-7 h-7 text-destructive" />
+              {/* Subscription required / expired overlay for replies */}
+              {(subExpired || !canReplyAsSupplier) ? (
+                <div className="flex-1 flex flex-col min-h-0">
+                  {/* Keep message history readable */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {loadingMsgs ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-center py-10">
+                        <MessageSquare className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground">No messages yet. Subscribe to start the conversation.</p>
+                      </div>
+                    ) : messages.map(msg => {
+                      const isMine = msg.sender_id === user?.id;
+                      return (
+                        <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                          <div className={cn(
+                            'max-w-[85%] p-3 rounded-2xl text-sm shadow-xs',
+                            isMine ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-card border border-border text-foreground rounded-tl-sm'
+                          )}>
+                            <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={bottomRef} />
                   </div>
-                  <div>
-                    <p className="font-semibold text-foreground mb-1">Your subscription has expired</p>
-                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                      Renew your subscription to continue sending messages. Your chat history remains saved.
-                    </p>
+                  <div className="px-4 py-5 border-t border-border bg-amber-500/5 text-center space-y-3 shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto">
+                      <Lock className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground mb-1">
+                        {subExpired && canReplyAsSupplier ? 'Your subscription has expired' : 'Subscribe to reply to this buyer'}
+                      </p>
+                      <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                        You can read the full thread. Activate a manufacturer plan to send quotes and chat replies.
+                      </p>
+                    </div>
+                    <Link to={subscriptionPath}>
+                      <Button className="bg-[#FF5A00] hover:bg-[#e04f00] text-white font-bold gap-2">
+                        <Sparkles className="w-4 h-4" /> View Plans &amp; Subscribe <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
                   </div>
-                  <Link to={subscriptionPath}>
-                    <Button className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
-                      Renew Subscription <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
                 </div>
               ) : (
                 <>
@@ -781,6 +864,7 @@ export default function MessagesPage() {
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      if (requirePaidReply()) return;
                                       setInput(reply.text);
                                       toast.success('Inserted AI reply into input');
                                     }}
@@ -792,6 +876,7 @@ export default function MessagesPage() {
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      if (requirePaidReply()) return;
                                       setInput(reply.text);
                                     }}
                                     className="text-[10px] font-bold text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 px-2 py-0.5 rounded transition-colors"
@@ -802,6 +887,7 @@ export default function MessagesPage() {
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      if (requirePaidReply()) return;
                                       setInput(reply.text);
                                       toast.info('Review text and press Send to dispatch.');
                                     }}

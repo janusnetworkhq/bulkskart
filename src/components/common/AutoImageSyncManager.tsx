@@ -25,6 +25,12 @@ export const AutoImageSyncManager: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [totalSyncedSession, setTotalSyncedSession] = useState(26);
   const isSyncingRef = useRef(false);
+  const [showPrivatePanel, setShowPrivatePanel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.search.includes('show_sync_panel=true');
+    }
+    return false;
+  });
 
   // Load initial logs
   const refreshLogs = useCallback(async () => {
@@ -60,8 +66,21 @@ export const AutoImageSyncManager: React.FC = () => {
     }
   }, [refreshLogs]);
 
-  // Realtime subscription to image_sync_logs table
+  // Support secret admin key shortcut (Ctrl + Shift + P) to toggle private debug view
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+        setShowPrivatePanel(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Realtime + logs only when admin panel is open
+  useEffect(() => {
+    if (!showPrivatePanel) return;
+
     refreshLogs();
 
     const channel = supabase
@@ -80,32 +99,17 @@ export const AutoImageSyncManager: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [refreshLogs]);
+  }, [refreshLogs, showPrivatePanel]);
 
-  const [showPrivatePanel, setShowPrivatePanel] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.location.search.includes('show_sync_panel=true');
-    }
-    return false;
-  });
-
-  // Support secret admin key shortcut (Ctrl + Shift + P) to toggle private debug view
+  // Auto-sync ONLY when admin debug panel is open — never for every production visitor.
+  // Running syncAllPostsAndCompanies() every minute for all users saturates Edge Functions
+  // and makes RFQ create / dashboard queries hang.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
-        setShowPrivatePanel(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    if (!showPrivatePanel) return;
 
-  // 1-minute countdown timer & automated interval trigger
-  useEffect(() => {
     const timer = setInterval(() => {
       setSecondsUntilNext((prev) => {
         if (prev <= 1) {
-          // Trigger the 1-minute sync silently in background
           triggerSync(false);
           return 60;
         }
@@ -114,9 +118,9 @@ export const AutoImageSyncManager: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [triggerSync]);
+  }, [triggerSync, showPrivatePanel]);
 
-  // Privately run in background: Do NOT render intrusive widget for regular users
+  // Do NOT render intrusive widget for regular users
   if (!showPrivatePanel) {
     return null;
   }

@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/db/supabase';
 import CreateReverseAuctionDialog from '@/components/auctions/CreateReverseAuctionDialog';
+import { getSimulatedAuctions } from '@/data/simulatedLiveAuctions';
+import { assignDistinctAuctionImages, resolveAuctionImage } from '@/lib/auctionImageResolver';
 
 export interface ReverseAuctionCardItem {
   id: string;
@@ -26,97 +28,51 @@ export interface ReverseAuctionCardItem {
   image: string;
 }
 
-const FALLBACK_AUCTIONS: ReverseAuctionCardItem[] = [
-  {
-    id: '50100000-0000-0000-0000-000000000501',
-    auctionNumber: 'AUC-501001',
-    auctionType: 'forward',
-    title: 'High-Precision 5-Axis CNC Milling Center – 12,000 RPM (Immediate Liquidation)',
-    category: 'Industrial Machinery',
-    quantity: '2 Complete Units',
-    priceRange: '₹18,50,000 / Unit',
-    location: 'Coimbatore, Tamil Nadu',
-    quotedCount: 8,
-    initialSeconds: 38400,
-    image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: '50200000-0000-0000-0000-000000000502',
-    auctionNumber: 'AUC-502002',
-    auctionType: 'forward',
-    title: 'Industrial Corrugated Packaging Box Flute Making Line (High Speed 200m/min)',
-    category: 'Packaging',
-    quantity: '1 Full Production Line',
-    priceRange: '₹32,00,000 / Set',
-    location: 'Surat, Gujarat',
-    quotedCount: 12,
-    initialSeconds: 47200,
-    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: '50300000-0000-0000-0000-000000000503',
-    auctionNumber: 'AUC-503003',
-    auctionType: 'forward',
-    title: 'Commercial Solar On-Grid Inverter Lot (50kW IP65 Three Phase)',
-    category: 'Electrical & Electronics',
-    quantity: '25 Units Lot',
-    priceRange: '₹1,15,000 / Unit',
-    location: 'Bengaluru, Karnataka',
-    quotedCount: 15,
-    initialSeconds: 29800,
-    image: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: '3b17842d-3698-4e66-986d-944c99cd04d1',
-    auctionNumber: 'AUC-3B1784',
-    auctionType: 'reverse',
-    title: 'Pure Copper Wire 2.5mm Industrial Grade (Surplus Factory Lot)',
-    category: 'Metals & Mining',
-    quantity: '5,000 Kilograms',
-    priceRange: '₹680 / kg',
-    location: 'Mumbai, Maharashtra',
-    quotedCount: 19,
-    initialSeconds: 18400,
-    image: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: '37e45d7b-32eb-4bcd-984f-7384e36496ae',
-    auctionNumber: 'AUC-37E45D',
-    auctionType: 'reverse',
-    title: 'Organic Cotton Combed Yarn 30s Count (Ring Spun Export Lot)',
-    category: 'Textiles & Apparel',
-    quantity: '10,000 Kilograms',
-    priceRange: '₹285 / kg',
-    location: 'Tirupur, Tamil Nadu',
-    quotedCount: 14,
-    initialSeconds: 41200,
-    image: 'https://images.unsplash.com/photo-1606744837616-56c9a5c6a6eb?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 'c3c6974e-fde8-403d-ad33-f6f631a269c1',
-    auctionNumber: 'AUC-C3C697',
-    auctionType: 'reverse',
-    title: 'Procurement: 10 Units 50kW Commercial 3-Phase Grid-Tie Solar Inverters',
-    category: 'Electrical & Electronics',
-    quantity: '10 Units',
-    priceRange: '₹1,20,000 / Unit',
-    location: 'Chennai, Tamil Nadu',
-    quotedCount: 11,
-    initialSeconds: 21600,
-    image: 'https://images.unsplash.com/photo-1548337138-e87d889cc369?auto=format&fit=crop&w=600&q=80',
-  }
-];
+function simulatedAsRailCards(): ReverseAuctionCardItem[] {
+  const mapped = getSimulatedAuctions().map((a) => ({
+    id: a.id,
+    auctionNumber: a.auction_number,
+    auctionType: a.auction_type,
+    title: a.title,
+    category: a.auction_type === 'forward' ? 'Surplus Liquidation' : 'Industrial Bulk',
+    quantity: `${a.total_quantity.toLocaleString('en-IN')} ${a.quantity_unit}`,
+    priceRange: `₹${a.starting_price.toLocaleString('en-IN')} / ${a.quantity_unit}`,
+    location: a.delivery_location,
+    quotedCount: a.total_bids,
+    initialSeconds: Math.max(
+      0,
+      Math.floor((new Date(a.end_time).getTime() - Date.now()) / 1000)
+    ),
+    image: resolveAuctionImage({ id: a.id, title: a.title, existing: a.images }),
+  }));
+  return assignDistinctAuctionImages(mapped);
+}
+
+const FALLBACK_AUCTIONS: ReverseAuctionCardItem[] = simulatedAsRailCards();
 
 const CYCLE_SECONDS = 25;
-const ITEMS_PER_PAGE = 4;
+/** 3 roomier cards fit laptop screens better than a cramped 4-up row */
+const ITEMS_PER_PAGE = 3;
+const MAX_RAIL_SECONDS = 24 * 60 * 60;
 
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+}
 
+function friendlyCategory(raw: unknown, auctionType: 'reverse' | 'forward'): string {
+  const value = String(raw || '').trim();
+  if (!value || isUuidLike(value)) {
+    return auctionType === 'forward' ? 'Surplus Liquidation' : 'Industrial Bulk';
+  }
+  return value;
+}
 
 function formatTime(totalSeconds: number): string {
   if (totalSeconds <= 0) return '00:00:00';
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  const capped = Math.min(totalSeconds, MAX_RAIL_SECONDS);
+  const hours = Math.floor(capped / 3600);
+  const minutes = Math.floor((capped % 3600) / 60);
+  const seconds = capped % 60;
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
@@ -140,6 +96,10 @@ export default function LiveReverseAuctionsRail() {
 
   const totalPages = Math.max(1, Math.ceil(allAuctions.length / ITEMS_PER_PAGE));
 
+  useEffect(() => {
+    if (page > totalPages - 1) setPage(0);
+  }, [page, totalPages]);
+
   // Query live database auctions (synced with Auctions Hub)
   const fetchLiveAuctions = useCallback(async () => {
     try {
@@ -162,52 +122,69 @@ export default function LiveReverseAuctionsRail() {
         const mappedFromDb: ReverseAuctionCardItem[] = listToMap.map((d: any, idx: number) => {
           const end = d.end_time ? new Date(d.end_time).getTime() : 0;
           let remaining = Math.max(0, Math.floor((end - currentTime) / 1000));
-          // If auction time has expired or not configured, compute an active cycle countdown so users can view & bid
-          if (remaining <= 0) {
-            remaining = ((idx * 3731) % 43200) + 7200;
+          // Keep live feel inside a 24h window; never dump raw UUID category ids onto the UI
+          if (remaining <= 0 || remaining > MAX_RAIL_SECONDS) {
+            remaining = ((idx * 2741) % (6 * 3600)) + 45 * 60;
           }
 
-          const defaultImg = d.auction_type === 'forward'
+          const auctionType: 'reverse' | 'forward' = d.auction_type === 'forward' ? 'forward' : 'reverse';
+          const defaultImg = auctionType === 'forward'
             ? 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600&q=80'
             : 'https://cdn.pixabay.com/photo/2016/11/29/09/32/welding-1868731_1280.jpg';
 
+          const auctionNumber = String(d.auction_number || '').trim();
+          const safeNumber =
+            auctionNumber && !isUuidLike(auctionNumber)
+              ? auctionNumber
+              : `AUC-${String(d.id).replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+
           return {
             id: d.id,
-            auctionNumber: d.auction_number || `AUC-${d.id.slice(0, 6).toUpperCase()}`,
-            auctionType: d.auction_type === 'forward' ? 'forward' : 'reverse',
+            auctionNumber: safeNumber,
+            auctionType,
             title: d.title,
-            category: d.category_id || (d.auction_type === 'forward' ? 'Surplus Liquidation' : 'Industrial Bulk'),
+            category: friendlyCategory(d.category_name || d.category || d.category_id, auctionType),
             quantity: d.total_quantity ? `${d.total_quantity.toLocaleString()} ${d.quantity_unit || 'Units'}` : 'Bulk Lot',
             priceRange: d.starting_price
               ? `₹${Number(d.starting_price).toLocaleString('en-IN')} / ${d.quantity_unit || 'unit'}`
               : 'Competitive Bidding',
             location: d.delivery_location || 'Pan-India',
             quotedCount: Number(d.total_bids) || (idx % 6) + 1,
-            initialSeconds: remaining,
-            image: d.images?.[0] || defaultImg
+            initialSeconds: Math.min(remaining, MAX_RAIL_SECONDS),
+            image: resolveAuctionImage({
+              id: d.id,
+              title: d.title || '',
+              existing: d.images?.[0] || defaultImg,
+            }),
           };
         });
 
-        setAllAuctions(mappedFromDb);
+        const sims = simulatedAsRailCards();
+        const merged = assignDistinctAuctionImages([
+          ...mappedFromDb,
+          ...sims.filter((s) => !mappedFromDb.some((d) => d.id === s.id)),
+        ]);
+        setAllAuctions(merged);
         const nextTimers: Record<string, number> = {};
-        mappedFromDb.forEach(a => {
+        merged.forEach((a) => {
           nextTimers[a.id] = a.initialSeconds;
         });
         setTimers(nextTimers);
       } else {
-        // Fallback to active curated 24h auctions
-        setAllAuctions(FALLBACK_AUCTIONS);
+        const sims = simulatedAsRailCards();
+        setAllAuctions(sims);
         const nextTimers: Record<string, number> = {};
-        FALLBACK_AUCTIONS.forEach(a => {
+        sims.forEach((a) => {
           nextTimers[a.id] = a.initialSeconds;
         });
         setTimers(nextTimers);
       }
     } catch (err) {
       console.error('Error fetching live auctions for 24h rail:', err);
-      setAllAuctions(FALLBACK_AUCTIONS);
+      const sims = simulatedAsRailCards();
+      setAllAuctions(sims);
       const nextTimers: Record<string, number> = {};
-      FALLBACK_AUCTIONS.forEach(a => {
+      sims.forEach((a) => {
         nextTimers[a.id] = a.initialSeconds;
       });
       setTimers(nextTimers);
@@ -281,19 +258,20 @@ export default function LiveReverseAuctionsRail() {
 
   return (
     <section
-      className="relative z-20 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mb-8 sm:mb-12"
+      className="relative z-20 max-w-[1400px] mx-auto w-full px-4 sm:px-5 md:px-6 mb-8 sm:mb-12"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* ── Header: Live Indicator, Title, 25s Countdown Progress & Navigation Controls ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5">
-        <div className="flex items-center gap-2.5 flex-wrap">
+      {/* Header — wraps cleanly on laptop widths */}
+      <div className="flex flex-col gap-3 mb-3 sm:mb-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           <Flame className="w-4 h-4 text-[#FF5A00] animate-bounce shrink-0" />
           <h2 className="text-xs sm:text-sm font-extrabold text-white tracking-wider uppercase flex items-center gap-2">
-            Sell Products in 24 Hours <span className="text-[#FF5A00] font-black bg-[#FF5A00]/15 px-1.5 py-0.5 rounded text-[10px] border border-[#FF5A00]/30">HOT</span>
+            Sell Products in 24 Hours
+            <span className="text-[#FF5A00] font-black bg-[#FF5A00]/15 px-1.5 py-0.5 rounded text-[10px] border border-[#FF5A00]/30">
+              HOT
+            </span>
           </h2>
-
-          {/* 25-Second Auto-Rotation Badge with Live Countdown */}
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF5A00]/15 border border-[#FF5A00]/30 text-white text-[11px] font-medium">
             <RefreshCw className={`w-3 h-3 text-[#FF5A00] ${isSyncing ? 'animate-spin' : ''}`} />
             <span>
@@ -310,28 +288,25 @@ export default function LiveReverseAuctionsRail() {
           </div>
         </div>
 
-        {/* Right side controls: Play/Pause, Batch dots, Prev/Next arrows & View All */}
-        <div className="flex items-center justify-between sm:justify-end gap-2.5">
-          {/* Pause / Resume Button */}
+        <div className="flex items-center gap-2 flex-wrap sm:justify-end">
           <button
             type="button"
-            onClick={() => setIsPaused(p => !p)}
-            aria-label={isPaused ? "Resume 25s auto-cycle" : "Pause 25s auto-cycle"}
+            onClick={() => setIsPaused((p) => !p)}
+            aria-label={isPaused ? 'Resume 25s auto-cycle' : 'Pause 25s auto-cycle'}
             className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-all border border-slate-700/80"
-            title={isPaused ? "Resume auto rotation" : "Pause auto rotation"}
+            title={isPaused ? 'Resume auto rotation' : 'Pause auto rotation'}
           >
             {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Pagination Dots */}
-          <div className="flex items-center gap-1.5 px-1">
-            {Array.from({ length: totalPages }).map((_, idx) => (
+          <div className="flex items-center gap-1.5 px-1 max-w-[140px] overflow-hidden">
+            {Array.from({ length: Math.min(totalPages, 8) }).map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => handleSelectPage(idx)}
                 aria-label={`Jump to auction batch ${idx + 1}`}
-                className={`h-2 rounded-full transition-all duration-300 ${
+                className={`h-2 rounded-full transition-all duration-300 shrink-0 ${
                   idx === page
                     ? 'w-5 bg-[#FF5A00] shadow-[0_0_8px_rgba(255,90,0,0.6)]'
                     : 'w-2 bg-slate-700 hover:bg-slate-500'
@@ -340,7 +315,6 @@ export default function LiveReverseAuctionsRail() {
             ))}
           </div>
 
-          {/* Prev / Next Arrows */}
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -360,7 +334,7 @@ export default function LiveReverseAuctionsRail() {
             </button>
           </div>
 
-          <div className="h-4 w-px bg-slate-800 hidden sm:block mx-1" />
+          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
 
           <Button
             type="button"
@@ -368,7 +342,8 @@ export default function LiveReverseAuctionsRail() {
             className="bg-[#FF5A00] hover:bg-[#e04e00] text-white text-xs font-bold h-8 px-3 rounded-xl shadow-[0_2px_0_#922f00] flex items-center gap-1.5 shrink-0 transition-all active:translate-y-0.5 active:shadow-none"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>⚡ List Product in 24h</span>
+            <span className="hidden min-[420px]:inline">List Product in 24h</span>
+            <span className="min-[420px]:hidden">List 24h</span>
           </Button>
 
           <Link
@@ -381,15 +356,14 @@ export default function LiveReverseAuctionsRail() {
         </div>
       </div>
 
-      {/* ── 25s Visual Progress Timeline Bar ── */}
-      <div className="w-full h-1 bg-slate-800/80 rounded-full overflow-hidden mb-4 relative">
+      <div className="w-full h-1 bg-slate-800/80 rounded-full overflow-hidden mb-4">
         <div
           className="h-full bg-gradient-to-r from-amber-500 via-[#FF5A00] to-orange-400 transition-all duration-1000 ease-linear rounded-full"
-          style={{ width: `${isPaused || isHovered ? progressPercent : progressPercent}%` }}
+          style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      {/* ── Animated Cards Grid (Slides smoothly on 25s rotation) ── */}
+      {/* 3 equal cards on desktop — readable on laptop; swipe on mobile */}
       <AnimatePresence mode="wait">
         <motion.div
           key={page}
@@ -397,7 +371,7 @@ export default function LiveReverseAuctionsRail() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -12 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible"
+          className="flex gap-3 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible sm:pb-0"
         >
           {displayAuctions.map((auction) => {
             const timeLeft = timers[auction.id] !== undefined ? timers[auction.id] : auction.initialSeconds;
@@ -405,11 +379,24 @@ export default function LiveReverseAuctionsRail() {
             return (
               <div
                 key={auction.id}
-                onClick={() => navigate(`/auctions/${auction.auctionType === 'forward' ? 'forward' : 'reverse'}/${auction.id}`)}
-                className="snap-start shrink-0 w-[84vw] max-w-[310px] md:w-auto group bg-slate-900/85 hover:bg-slate-900 border border-slate-800/90 hover:border-[#FF5A00]/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col cursor-pointer"
+                role="link"
+                tabIndex={0}
+                onClick={() =>
+                  navigate(
+                    `/auctions/${auction.auctionType === 'forward' ? 'forward' : 'reverse'}/${auction.id}`
+                  )
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(
+                      `/auctions/${auction.auctionType === 'forward' ? 'forward' : 'reverse'}/${auction.id}`
+                    );
+                  }
+                }}
+                className="snap-start shrink-0 w-[78vw] max-w-[320px] sm:w-auto sm:max-w-none group bg-slate-900/85 hover:bg-slate-900 border border-slate-800/90 hover:border-[#FF5A00]/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col cursor-pointer min-h-0"
               >
-                {/* Product Thumbnail with Badges */}
-                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-950">
+                <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-950 shrink-0">
                   <SafeImage
                     src={auction.image}
                     alt={auction.title}
@@ -417,63 +404,53 @@ export default function LiveReverseAuctionsRail() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
 
-                  {/* Top Badges: LIVE + Countdown Timer + RFQ ID */}
-                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between text-[10px] font-bold">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-md bg-red-600 text-white font-extrabold flex items-center gap-1 shadow-sm">
+                  <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 text-[10px] font-bold">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="px-2 py-0.5 rounded-md bg-red-600 text-white font-extrabold flex items-center gap-1 shadow-sm shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                         LIVE
                       </span>
-
-                      <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white border border-slate-700/80 font-mono flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white border border-slate-700/80 font-mono flex items-center gap-1 shrink-0">
                         <Clock className="w-3 h-3 text-[#FF5A1F]" />
                         {formatTime(timeLeft)}
                       </span>
                     </div>
-
-                    <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-slate-300 font-mono text-[9px]">
+                    <span className="px-1.5 py-0.5 rounded-md bg-black/60 text-slate-300 font-mono text-[9px] truncate max-w-[38%]">
                       {auction.auctionNumber}
                     </span>
                   </div>
 
-                  {/* Category Pill on bottom left */}
-                  <div className="absolute bottom-2.5 left-2.5">
-                    <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-slate-200 border border-slate-700/60 text-[10px] font-semibold">
+                  <div className="absolute bottom-2 left-2 max-w-[75%]">
+                    <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-slate-200 border border-slate-700/60 text-[10px] font-semibold truncate inline-block max-w-full">
                       {auction.category}
                     </span>
                   </div>
                 </div>
 
-                {/* Card Body */}
-                <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between space-y-3 min-w-0">
+                <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between gap-2.5 min-w-0">
                   <div className="min-w-0">
-                    <h3 className="font-bold text-white text-sm sm:text-base group-hover:text-[#FF5A1F] transition-colors line-clamp-2 break-words leading-snug">
+                    <h3 className="font-bold text-white text-sm group-hover:text-[#FF5A1F] transition-colors line-clamp-2 leading-snug">
                       {auction.title}
                     </h3>
-
-                    <div className="text-xs text-slate-300 font-medium mt-1 break-words">
+                    <div className="text-xs text-slate-300 font-medium mt-1 truncate">
                       {auction.quantity}
                     </div>
-
-                    <div className="text-base font-extrabold text-[#FF5A1F] mt-1 break-words">
+                    <div className="text-sm sm:text-base font-extrabold text-[#FF5A1F] mt-1 truncate">
                       {auction.priceRange}
                     </div>
                   </div>
 
-                  {/* Footer: Location & Quoted Count */}
-                  <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 gap-2">
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 gap-2">
                     <div className="flex items-center gap-1 min-w-0 flex-1">
                       <MapPin className="w-3 h-3 text-[#FF5A1F] shrink-0" />
                       <span className="truncate">{auction.location}</span>
                     </div>
-
                     <div className="flex items-center gap-1 font-semibold text-slate-200 shrink-0">
                       <Users className="w-3 h-3 text-[#FF5A1F]" />
                       <span>{auction.quotedCount} Quoted</span>
                     </div>
                   </div>
                 </div>
-
               </div>
             );
           })}

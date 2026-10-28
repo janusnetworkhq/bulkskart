@@ -25,6 +25,11 @@ import {
 import BidderProfileModal from '@/components/auctions/BidderProfileModal';
 import AuctionLiveChat from '@/components/auctions/AuctionLiveChat';
 import ProtectedContact from '@/components/common/ProtectedContact';
+import {
+  getSimulatedAuctionById,
+  getSimulatedBidHistory,
+  isSimulatedAuctionId,
+} from '@/data/simulatedLiveAuctions';
 
 interface BidRecord {
   id: string;
@@ -68,7 +73,7 @@ export default function ForwardAuctionDetailPage() {
     }
   };
 
-  // Load auction from database by id
+  // Load auction from database by id (or local simulation seed)
   useEffect(() => {
     let isMounted = true;
     async function loadAuctionData() {
@@ -76,6 +81,39 @@ export default function ForwardAuctionDetailPage() {
       setLoading(true);
 
       try {
+        if (isSimulatedAuctionId(id)) {
+          const sim = getSimulatedAuctionById(id);
+          if (sim && isMounted) {
+            const remSec = Math.max(
+              0,
+              Math.floor((new Date(sim.end_time).getTime() - Date.now()) / 1000)
+            );
+            setSecondsRemaining(remSec);
+            setIsSoldConcluded(false);
+            setAuction({
+              ...sim,
+              specifications: {
+                note: 'Temporary sample lot for live-board demonstration. No personal seller identity is shown.',
+              },
+              manufacturer_name: sim.manufacturer_name,
+            });
+            setBidHistory(
+              getSimulatedBidHistory(sim).map((b) => ({
+                ...b,
+                timestamp: new Date(b.timestamp).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              }))
+            );
+            setQuotations([]);
+          } else if (isMounted) {
+            setAuction(null);
+          }
+          if (isMounted) setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('auctions')
           .select('*')
@@ -169,6 +207,43 @@ export default function ForwardAuctionDetailPage() {
     }
 
     loadAuctionData();
+
+    if (isSimulatedAuctionId(id)) {
+      const simTick = setInterval(() => {
+        if (!isMounted || !id) return;
+        const sim = getSimulatedAuctionById(id);
+        if (!sim) return;
+        const remSec = Math.max(
+          0,
+          Math.floor((new Date(sim.end_time).getTime() - Date.now()) / 1000)
+        );
+        setSecondsRemaining(remSec);
+        setIsSoldConcluded(false);
+        setAuction((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                ...sim,
+                manufacturer_name: sim.manufacturer_name,
+              }
+            : prev
+        );
+        setBidHistory(
+          getSimulatedBidHistory(sim).map((b) => ({
+            ...b,
+            timestamp: new Date(b.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          }))
+        );
+      }, 8000);
+
+      return () => {
+        isMounted = false;
+        clearInterval(simTick);
+      };
+    }
 
     // Setup Realtime Sync for incoming bids on this auction
     const bidsChannel = supabase

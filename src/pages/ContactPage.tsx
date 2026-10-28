@@ -13,6 +13,7 @@ import {
   Building2, Globe, MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { WHATSAPP_CHAT_URL, WHATSAPP_DISPLAY, WHATSAPP_MESSAGE_URL } from '@/lib/supportContact';
 
 const CONTACT_INFO = [
   {
@@ -26,6 +27,13 @@ const CONTACT_INFO = [
     label: 'Email',
     value: 'info@bulkskart.com',
     href: 'mailto:info@bulkskart.com',
+  },
+  {
+    icon: MessageSquare,
+    label: 'WhatsApp chat',
+    value: WHATSAPP_DISPLAY,
+    href: WHATSAPP_CHAT_URL,
+    sub: 'Message BulkSkart on WhatsApp',
   },
   {
     icon: MapPin,
@@ -85,7 +93,7 @@ export default function ContactPage() {
     <MainLayout>
       <PageMeta
         title="Contact BulkSkart — Support, Partnerships & Global Trade Enquiries"
-        description="Reach the BulkSkart team for support, supplier partnerships, buyer assistance, or trade enquiries. We respond within 24 hours."
+        description="Reach BulkSkart support by email or WhatsApp chat on +91 89702 02677. We respond within 24 hours."
         keywords="contact BulkSkart, B2B support, trade enquiry, supplier help, bulk trade contact"
         canonical="/contact"
         ogType="website"
@@ -179,7 +187,7 @@ export default function ContactPage() {
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground font-medium">{label}</p>
                       {href ? (
-                        <a href={href} className="text-sm font-semibold text-foreground hover:text-[#FF5A00] transition-colors break-words">{value}</a>
+                        <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noreferrer' : undefined} className="text-sm font-semibold text-foreground hover:text-[#FF5A00] transition-colors break-words">{value}</a>
                       ) : (
                         <p className="text-sm font-semibold text-foreground break-words">{value}</p>
                       )}
@@ -187,6 +195,15 @@ export default function ContactPage() {
                     </div>
                   </div>
                 ))}
+                <a
+                  href={WHATSAPP_MESSAGE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 h-11 rounded-lg bg-[#25D366] hover:bg-[#1ebe5d] text-white text-sm font-bold transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Message BulkSkart on WhatsApp
+                </a>
               </div>
             </div>
 

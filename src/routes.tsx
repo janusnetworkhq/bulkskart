@@ -1,4 +1,5 @@
-import React, { lazy } from 'react';
+import React from 'react';
+import { lazyRetry as lazy } from '@/lib/lazyRetry';
 import type { ReactNode } from 'react';
 
 // ─── Eager: landing shell (must be instant) ──────────────────────────────────
@@ -17,8 +18,10 @@ const PricingPage             = lazy(() => import('./pages/PricingPage'));
 const AuthPage                = lazy(() => import('./pages/AuthPage'));
 const ProductDetailPage       = lazy(() => import('./pages/ProductDetailPage'));
 const CompanyProfilePage      = lazy(() => import('./pages/CompanyProfilePage'));
+const BuyerPublicProfilePage  = lazy(() => import('./pages/BuyerPublicProfilePage'));
 const ContactPage             = lazy(() => import('./pages/ContactPage'));
 const ShippingCalculatorPage  = lazy(() => import('./pages/ShippingCalculatorPage'));
+const LoanCalculatorPage      = lazy(() => import('./pages/LoanCalculatorPage'));
 const TradeAssistantPage      = lazy(() => import('./pages/TradeAssistantPage'));
 const SEOHubPage              = lazy(() => import('./pages/SEOHubPage'));
 const BlogDetailPage          = lazy(() => import('./pages/BlogDetailPage'));
@@ -121,6 +124,7 @@ export const routes: RouteConfig[] = [
   { name: 'Company Profile', path: '/companies/:slug', element: <CompanyProfilePage />, public: true },
   { name: 'Manufacturer Profile', path: '/manufacturers/:slug', element: <CompanyProfilePage />, public: true },
   { name: 'Supplier Profile Alias', path: '/suppliers/:slug', element: <CompanyProfilePage />, public: true },
+  { name: 'Buyer Public Profile', path: '/buyers/:slug', element: <BuyerPublicProfilePage />, public: true },
   { name: 'Requirement Details', path: '/requirement/:rfqId', element: <RequirementDetailsPage />, public: true },
   { name: 'Requirement Details Alias', path: '/requirements/:rfqId', element: <RequirementDetailsPage />, public: true },
   { name: 'Live Auctions Hub', path: '/auctions', element: <AuctionsHubPage />, public: true },
@@ -133,6 +137,7 @@ export const routes: RouteConfig[] = [
   { name: 'My Bids', path: '/my-bids', element: <AuctionsHubPage />, public: true },
   { name: 'Contact', path: '/contact', element: <ContactPage />, public: true },
   { name: 'Shipping Calculator', path: '/shipping-calculator', element: <ShippingCalculatorPage />, public: true },
+  { name: 'Free Delivery & Loan Calculator', path: '/loan-calculator', element: <LoanCalculatorPage />, public: true },
   { name: 'AI Trade Assistant', path: '/trade-assistant', element: <TradeAssistantPage />, public: true },
   { name: 'AI Sourcing Assistant', path: '/ai-sourcing', element: <TradeAssistantPage />, public: true },
   { name: 'AI Import & Export Assistance', path: '/import-export-assistance', element: <TradeAssistantPage />, public: true },

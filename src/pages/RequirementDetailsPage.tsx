@@ -46,6 +46,7 @@ import {
   type AIChatReply,
 } from '@/lib/aiSalesAssistant';
 import { generateSyntheticRequirement } from '@/lib/largeRequirementsDataset';
+import { getIndianBulkOrder, indexFromIndianOrderNumber } from '@/lib/bulkOrdersIndiaDataset';
 import { getBuyerProfileForRequirement, BuyerCompanyProfile } from '@/lib/buyerProfilesPool';
 import { resolveRfqImage } from '@/lib/contentImages';
 
@@ -361,6 +362,38 @@ export default function RequirementDetailsPage() {
               product_count: 120,
               created_at: new Date().toISOString()
             }
+          } as Requirement;
+        } else if (indexFromIndianOrderNumber(rfqId) != null) {
+          const lead = getIndianBulkOrder(indexFromIndianOrderNumber(rfqId)!);
+          const qtyMatch = lead.quantity.match(/[\d,]+/);
+          const quantity = qtyMatch ? parseInt(qtyMatch[0].replace(/,/g, ''), 10) : 1;
+          const quantityUnit = lead.quantity.replace(/^[\d,\s]+/, '').trim() || 'Units';
+          const cityParts = lead.city.split(',');
+          fetchedReq = {
+            id: lead.id,
+            buyer_id: 'verified-buyer-india',
+            category_id: null,
+            title: lead.message,
+            description: `${lead.title}. ${lead.message}`,
+            specifications: `Buyer: ${lead.buyerName}\nCompany: ${lead.companyName}\nQuantity: ${lead.quantity}\nLocation: ${lead.city}, India\nCategory: ${lead.category}\n${lead.attribute}`,
+            quantity,
+            quantity_unit: quantityUnit,
+            destination_country: 'India',
+            destination_city: cityParts[0]?.trim() || lead.city,
+            deadline: null,
+            budget_min: null,
+            budget_max: null,
+            currency: 'INR',
+            attachment_url: lead.imageUrl,
+            status: 'active',
+            quote_count: 0,
+            view_count: 0,
+            is_verified_buyer: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            expires_at: null,
+            deal_status: 'active',
+            req_number: lead.orderNumber,
           } as Requirement;
         } else {
           const synthIndex = Math.abs(rfqId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 1000;

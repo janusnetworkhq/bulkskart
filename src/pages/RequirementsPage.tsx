@@ -795,14 +795,11 @@ export default function RequirementsPage() {
                               <MapPin className="w-3 h-3 text-[#FF5A00] shrink-0" />
                               {visual.locationDisplay}
                             </span>
-                            <span className="flex items-center gap-1 text-rose-500 font-bold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded text-[11px]">
-                              <Zap className="w-3 h-3 text-rose-500 fill-current shrink-0" />
-                              URGENT RFQ
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              {timeAgo(req.created_at)}
                             </span>
-                            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium text-[11px]">
-                              <Lock className="w-3 h-3 text-amber-500 shrink-0" />
-                              Paid Companies Only Can Message
-                            </span>
+                            <span className="font-semibold text-foreground">{visual.quantityDisplay}</span>
                           </div>
                         </div>
 
@@ -829,7 +826,7 @@ export default function RequirementsPage() {
                             onClick={() => handleViewAndQuote(req)}
                             className="bg-[#FF5A00] hover:bg-[#e04e00] text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-[0_2px_10px_rgba(255,90,0,0.35)] shrink-0 gap-1.5"
                           >
-                            View & Quote <ArrowRight className="w-4 h-4" />
+                            Contact Buyer <ArrowRight className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>

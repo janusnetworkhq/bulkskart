@@ -17,7 +17,7 @@ const buyerSteps = [
   { n: 3, icon: Package, title: 'Receive Multiple Quotes', desc: 'Verified manufacturers will send you competitive quotes directly to your dashboard.' },
   { n: 4, icon: TrendingUp, title: 'Compare & Choose', desc: 'Compare quotes side-by-side on price, MOQ, delivery time and supplier rating.' },
   { n: 5, icon: MessageSquare, title: 'Negotiate Directly', desc: 'Chat with suppliers to negotiate terms, request samples, and clarify specifications.' },
-  { n: 6, icon: CheckCircle, title: 'Confirm Your Order', desc: 'Accept the best quote and place your bulk order. Our team is available to support.' },
+  { n: 6, icon: CheckCircle, title: 'Confirm Your Order', desc: 'Accept the best quote and place your bulk order. Delivery is free on every order, and the loan calculator can show the monthly cost before you buy.' },
 ];
 
 const supplierSteps = [
@@ -31,6 +31,8 @@ const supplierSteps = [
 
 const faqs = [
   { q: 'Is registration free for buyers?', a: 'Yes, buyer registration is completely free. You can post requirements and receive quotes at no cost.' },
+  { q: 'Is delivery free?', a: 'Yes. Every order placed on BulkSkart includes free delivery. No delivery fee is added at checkout, for any order value or category.' },
+  { q: 'Can I calculate a monthly installment for an order?', a: 'Yes. The order loan calculator on the homepage and at /loan-calculator estimates a monthly installment from the order value, down payment, rate, and tenure. It is a planning estimate, not a loan approval. Delivery on the order stays free.' },
   { q: 'How are manufacturers verified?', a: 'Suppliers submit GST certificates, IEC (Import Export Code), and company registration documents. Our team reviews and approves each application.' },
   { q: 'How many quotes will I receive?', a: 'Typically, buyers receive 5–20 quotes within 48–72 hours of posting their requirement, depending on the product category.' },
   { q: 'Can I export to any country?', a: 'Yes. BulkSkart connects you with manufacturers who export to 180+ countries. Specify your destination country when posting a requirement.' },

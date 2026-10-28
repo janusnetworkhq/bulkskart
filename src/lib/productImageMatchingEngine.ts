@@ -195,7 +195,7 @@ export const ALIBABA_AUTHORIZED_IMAGE_REGISTRY: ImageRegistryEntry[] = [
   {
     category: 'Machinery & Industrial Equipment',
     keywords: ['pump', 'water pump', 'slurry pump', 'cast iron pump', 'centrifugal pump', 'gear pump', 'valve'],
-    primaryImage: 'https://images.unsplash.com/photo-1579482495398-a28a2a0ebae7?auto=format&fit=crop&w=800&q=80',
+    primaryImage: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80',
     galleryImages: [
       'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80',
@@ -587,6 +587,8 @@ export const GENERIC_IMAGE_PATTERNS = [
   'placeholder',
   'via.placeholder.com',
   'default-product',
+  'ewnftvshvsrhawluloty.supabase.co',
+  '/product-images/representative/',
 ];
 
 export function isGenericOrDuplicateImage(url?: string | null): boolean {

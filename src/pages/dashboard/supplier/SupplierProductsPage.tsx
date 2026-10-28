@@ -186,7 +186,11 @@ export default function SupplierProductsPage() {
   };
 
   const handleAddProductClick = () => {
+    // Unpaid manufacturers can view My Products; subscription is only required to add/publish
     if (!isPaidSubscriber) {
+      toast.message('Subscription required to add products', {
+        description: 'Activate a manufacturer plan to upload and publish listings.',
+      });
       setPaywallOpen(true);
       return;
     }

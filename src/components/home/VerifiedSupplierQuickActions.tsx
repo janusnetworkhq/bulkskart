@@ -47,7 +47,7 @@ export default function VerifiedSupplierQuickActions() {
     },
     {
       id: 'post-rfq',
-      title: 'Post Your Requirements',
+      title: 'Post Requirements',
       subtitle: 'Get genuine manufacturer CIF/FOB quotes',
       icon: FileText,
       badge: 'Buyers Only',
@@ -58,7 +58,7 @@ export default function VerifiedSupplierQuickActions() {
     },
     {
       id: 'sell-24h',
-      title: 'Sell the Product in 24 Hours',
+      title: 'Sell in 24 Hours',
       subtitle: 'Fast-track liquidation auctions & bulk bids',
       icon: Zap,
       badge: 'Hot 24H',
@@ -69,7 +69,7 @@ export default function VerifiedSupplierQuickActions() {
     },
     {
       id: 'trade-global',
-      title: 'Import & Export Globally',
+      title: 'Import & Export',
       subtitle: 'HS codes, duties, landed cost & logistics',
       icon: Globe,
       badge: 'Worldwide',
@@ -81,73 +81,74 @@ export default function VerifiedSupplierQuickActions() {
   ];
 
   return (
-    <section className="relative z-20 max-w-7xl mx-auto w-full px-3.5 sm:px-6 lg:px-8 -mt-2 mb-8 sm:mb-14">
-      {/* Container with subtle glow and header */}
-      <div className="relative rounded-3xl bg-gradient-to-b from-[#0F172A]/90 to-[#0B0F19] border border-border/80 p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl overflow-hidden">
+    <section className="relative z-20 max-w-[1400px] mx-auto w-full px-4 sm:px-5 md:px-6 -mt-2 mb-8 sm:mb-14">
+      {/* Container with subtle glow and header — matches homepage display width */}
+      <div className="relative rounded-3xl bg-gradient-to-b from-[#0F172A]/90 to-[#0B0F19] border border-border/80 p-4 sm:p-5 md:p-6 lg:p-7 shadow-2xl backdrop-blur-xl overflow-hidden">
         
         {/* Ambient Top Glow in Brand Orange */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-gradient-to-b from-[#FF5A00]/15 to-transparent blur-2xl pointer-events-none" />
 
         {/* Section Header */}
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 pb-4 border-b border-border/60">
-          <div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5 pb-4 border-b border-border/60">
+          <div className="min-w-0 flex-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF5A00]/10 border border-[#FF5A00]/25 text-[#FF5A00] text-xs font-bold mb-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#FF5A00]" />
               <span>Direct Trade Workflows</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
               Fast-Track Sourcing & Selling Workflows
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
               Accelerate your bulk B2B trade — connect with verified manufacturers or liquidate inventory in 24 hours.
             </p>
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-400 shrink-0">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#FF5A00]" />
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#FF5A00] shrink-0" />
               100% Verified Trade Assurance
             </span>
           </div>
         </div>
 
-        {/* 5-Column Grid on Desktop, 2/3 on Tablet, 1/2 on Mobile */}
-        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        {/* Responsive workflow grid: equal-height cards that fit laptop → wide displays */}
+        <div className="relative z-10 grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-3.5 auto-rows-fr">
           {actions.map((act) => {
             const Icon = act.icon;
             return (
               <button
                 key={act.id}
+                type="button"
                 onClick={act.action}
-                className={`group relative text-left rounded-2xl bg-[#0c121e]/90 hover:bg-[#121a2b] border border-slate-800/90 ${act.borderColor} p-4 transition-all duration-200 hover:-translate-y-1 shadow-lg hover:shadow-xl active:scale-[0.98] flex flex-col justify-between overflow-hidden cursor-pointer`}
+                className={`group relative text-left rounded-2xl bg-[#0c121e]/90 hover:bg-[#121a2b] border border-slate-800/90 ${act.borderColor} p-3.5 sm:p-4 transition-all duration-200 hover:-translate-y-1 shadow-lg hover:shadow-xl active:scale-[0.98] flex flex-col h-full min-h-[168px] overflow-hidden cursor-pointer`}
               >
                 {/* Subtle Card Top Gradient */}
                 <div className={`absolute top-0 left-0 right-0 h-28 bg-gradient-to-b ${act.gradient} pointer-events-none opacity-80`} />
 
                 {/* Top Row: Icon + Badge */}
-                <div className="relative z-10 flex items-center justify-between w-full mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center text-[#FF5A00] group-hover:scale-110 group-hover:bg-[#FF5A00] group-hover:text-white transition-all shadow-md">
-                    <Icon className="w-5 h-5 transition-transform duration-200" />
+                <div className="relative z-10 flex items-start justify-between w-full gap-2 mb-2.5">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center text-[#FF5A00] group-hover:scale-105 group-hover:bg-[#FF5A00] group-hover:text-white transition-all shadow-md shrink-0">
+                    <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5 transition-transform duration-200" />
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${act.badgeColor}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${act.badgeColor}`}>
                     {act.badge}
                   </span>
                 </div>
 
                 {/* Middle: Title & Subtitle */}
-                <div className="relative z-10 flex-1 mb-4">
-                  <h3 className="font-extrabold text-white text-sm sm:text-[15px] leading-snug group-hover:text-[#FF5A00] transition-colors">
+                <div className="relative z-10 flex-1 min-w-0 mb-3">
+                  <h3 className="font-extrabold text-white text-[13px] sm:text-sm leading-snug group-hover:text-[#FF5A00] transition-colors line-clamp-2">
                     {act.title}
                   </h3>
-                  <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                  <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">
                     {act.subtitle}
                   </p>
                 </div>
 
                 {/* Bottom CTA Arrow Button */}
-                <div className="relative z-10 mt-auto pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-300 group-hover:text-[#FF5A00] transition-colors">
+                <div className="relative z-10 mt-auto pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs font-bold text-slate-300 group-hover:text-[#FF5A00] transition-colors">
                   <span>Explore Now</span>
-                  <div className="w-6 h-6 rounded-full bg-slate-800/80 group-hover:bg-[#FF5A00] flex items-center justify-center text-slate-300 group-hover:text-white transition-all">
+                  <div className="w-6 h-6 rounded-full bg-slate-800/80 group-hover:bg-[#FF5A00] flex items-center justify-center text-slate-300 group-hover:text-white transition-all shrink-0">
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>

@@ -1,18 +1,41 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import CopyPublicProfileButton from '@/components/common/CopyPublicProfileButton';
 import BrandLogo from '@/components/common/BrandLogo';
 import PageMeta from '@/components/common/PageMeta';
 import {
   LayoutDashboard, Package, FileText, MessageSquare, Bell,
   Settings, LogOut, Menu, Globe, BarChart3, TrendingUp,
   Shield, Flag, CreditCard, Building2, UserCircle,
-  Warehouse, Zap, Truck, Sparkles, Lock, AlertTriangle,
+  Warehouse, Zap, Truck, Sparkles, Lock, AlertTriangle, Calculator,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** Routes unpaid manufacturers may still open (subscribe / setup / inbox / browse). */
+const UNPAID_SUPPLIER_ALLOWLIST = [
+  '/dashboard/supplier',
+  '/dashboard/supplier/subscription',
+  '/dashboard/supplier/profile',
+  '/dashboard/supplier/verification',
+  '/dashboard/supplier/messages',
+  '/dashboard/supplier/notifications',
+  '/dashboard/supplier/overview',
+  '/dashboard/supplier/products', // browse catalog — Add Product gated in-page
+  '/dashboard/supplier/rfqs', // browse only — contacts & quotes gated in-page
+  '/dashboard/manufacturer',
+  '/dashboard/manufacturer/subscription',
+  '/dashboard/manufacturer/profile',
+  '/dashboard/manufacturer/verification',
+  '/dashboard/manufacturer/messages',
+  '/dashboard/manufacturer/notifications',
+  '/dashboard/manufacturer/overview',
+  '/dashboard/manufacturer/products',
+  '/dashboard/manufacturer/rfqs',
+];
 
 interface NavItem {
   label: string;
@@ -29,6 +52,7 @@ const buyerNavItems: NavItem[] = [
   { label: 'Notifications', href: '/dashboard/buyer/notifications', icon: Bell },
   { label: 'Saved Manufacturers', href: '/dashboard/buyer/saved-manufacturers', icon: Building2 },
   { label: 'Shipping Calculator', href: '/shipping-calculator', icon: Truck },
+  { label: 'Order Loan Calculator', href: '/loan-calculator', icon: Calculator },
   { label: 'KYC Verification', href: '/dashboard/buyer/verification', icon: Shield },
   { label: 'Disputes', href: '/dashboard/buyer/disputes', icon: Flag },
   { label: 'Profile', href: '/dashboard/buyer/profile', icon: Settings },
@@ -44,7 +68,6 @@ const supplierNavItems: NavItem[] = [
   { label: 'Quotations', href: '/dashboard/supplier/quotations', icon: TrendingUp },
   { label: 'Orders', href: '/dashboard/supplier/orders', icon: Building2 },
   { label: 'Messages', href: '/dashboard/supplier/messages', icon: MessageSquare },
-  { label: 'Lead Credits', href: '/dashboard/supplier/lead-credits', icon: Zap },
   { label: 'Notifications', href: '/dashboard/supplier/notifications', icon: Bell },
   { label: 'Verification', href: '/dashboard/supplier/verification', icon: Shield },
   { label: 'Disputes', href: '/dashboard/supplier/disputes', icon: Flag },
@@ -63,16 +86,51 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { profile, isPaidSubscriber, signOut } = useAuth();
+  const { isPaidSubscriber, signOut, loading, resolvedRole, displayName, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isUnpaidManufacturer = profile?.role === 'supplier' && !isPaidSubscriber;
+  const role = resolvedRole || profile?.role || null;
+  const isUnpaidManufacturer = role === 'supplier' && !isPaidSubscriber;
 
-  const navItems = profile?.role === 'admin'
+  // Route users to the dashboard that matches their signup role
+  useEffect(() => {
+    if (loading || !role) return;
+    const path = location.pathname;
+    const onBuyer = path.startsWith('/dashboard/buyer');
+    const onSupplier = path.startsWith('/dashboard/supplier') || path.startsWith('/dashboard/manufacturer');
+    const onAdmin = path.startsWith('/dashboard/admin');
+
+    if (role === 'supplier' && onBuyer) {
+      navigate('/dashboard/supplier', { replace: true });
+      return;
+    }
+    if (role === 'buyer' && onSupplier) {
+      navigate('/dashboard/buyer', { replace: true });
+      return;
+    }
+    if (role === 'admin' && (onBuyer || onSupplier) && !onAdmin) {
+      navigate('/dashboard/admin', { replace: true });
+    }
+  }, [loading, role, location.pathname, navigate]);
+
+  // Hard gate: unpaid manufacturers cannot use product/RFQ/order tools until they subscribe
+  useEffect(() => {
+    if (!isUnpaidManufacturer) return;
+    const path = location.pathname.replace(/\/$/, '') || '/';
+    const isAllowed = UNPAID_SUPPLIER_ALLOWLIST.includes(path);
+    if (!isAllowed && (path.startsWith('/dashboard/supplier') || path.startsWith('/dashboard/manufacturer'))) {
+      toast.message('Subscription required', {
+        description: 'Activate a manufacturer plan to access this section.',
+      });
+      navigate('/dashboard/supplier/subscription', { replace: true });
+    }
+  }, [isUnpaidManufacturer, location.pathname, navigate]);
+
+  const navItems = role === 'admin'
     ? adminNavItems
-    : profile?.role === 'supplier'
+    : role === 'supplier'
     ? supplierNavItems
     : buyerNavItems;
 
@@ -104,11 +162,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-            {profile?.full_name?.[0]?.toUpperCase() ?? 'U'}
+            {(displayName || 'U')[0]?.toUpperCase() ?? 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-sidebar-foreground truncate">{profile?.full_name ?? 'User'}</div>
-            <div className="text-xs text-muted-foreground capitalize">{profile?.role}</div>
+            <div className="text-sm font-medium text-sidebar-foreground truncate">
+              {loading ? 'Loading…' : displayName}
+            </div>
+            <div className="text-xs text-muted-foreground capitalize">
+              {loading ? '…' : role === 'supplier' ? 'Supplier' : role === 'admin' ? 'Admin' : role === 'buyer' ? 'Buyer' : 'Account'}
+            </div>
           </div>
         </div>
       </div>
@@ -156,21 +218,21 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex h-dvh max-h-dvh w-full overflow-hidden bg-background">
       <PageMeta
         title="Dashboard — BulkSkart B2B Marketplace"
         description="BulkSkart secure account management and trade negotiation dashboard."
         robots="noindex, nofollow"
       />
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-60 shrink-0 bg-sidebar border-r border-sidebar-border">
+      {/* Desktop Sidebar — fixed viewport height */}
+      <aside className="hidden md:flex flex-col w-56 lg:w-60 shrink-0 h-full bg-sidebar border-r border-sidebar-border overflow-hidden">
         <SidebarContent />
       </aside>
 
         {/* Main */}
-        <div className="flex-1 min-w-0 overflow-x-hidden flex flex-col w-full">
+        <div className="flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col w-full">
           {/* Mobile top bar */}
-          <div className="md:hidden flex items-center gap-3 px-3 sm:px-4 h-14 border-b border-border bg-background shrink-0 w-full">
+          <div className="md:hidden flex items-center gap-3 px-3 sm:px-4 h-12 border-b border-border bg-background shrink-0 w-full">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="text-foreground shrink-0" aria-label="Open sidebar menu">
@@ -182,31 +244,39 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </SheetContent>
             </Sheet>
             <BrandLogo size="sm" variant="auto" linkTo="/" />
+            <div className="ml-auto">
+              <CopyPublicProfileButton compact />
+            </div>
           </div>
+          {(role === 'supplier' || role === 'buyer') && (
+            <div className="hidden md:flex items-center justify-end h-12 px-4 border-b border-border bg-background shrink-0">
+              <CopyPublicProfileButton />
+            </div>
+          )}
 
           {/* ── UNPAID MANUFACTURER SUBSCRIPTION NOTIFICATION BANNER ── */}
           {isUnpaidManufacturer && (
-            <div className="w-full bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/10 border-b-2 border-amber-500/30 px-3 md:px-6 py-2.5 sm:py-3 shrink-0 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <Lock className="w-4 h-4" />
+            <div className="w-full bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-amber-500/10 border-b-2 border-amber-500/30 px-3 md:px-5 py-2 shrink-0 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <Lock className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs sm:text-sm font-extrabold text-foreground">
-                      Action Required: Unpaid Manufacturer Account
+                      Unpaid Manufacturer Account
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/30 uppercase tracking-wider">
-                      Buyer Contacts Locked
+                      Contacts Locked
                     </span>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 truncate sm:whitespace-normal">
-                    Buyer phone numbers, direct WhatsApp dialers, RFQ contact details, and bidding participant numbers are hidden. Subscribe to an active manufacturer plan to unlock direct buyer contacts.
+                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate sm:whitespace-normal hidden sm:block">
+                    Subscribe to unlock buyer contacts, RFQ quotes, product listings, and premium tools.
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
-                <Link to="/pricing">
+                <Link to="/pricing" className="hidden sm:block">
                   <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/30 hover:bg-amber-500/10">
                     Compare Plans
                   </Button>
@@ -221,7 +291,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           )}
 
-          <main className="flex-1 w-full min-w-0 overflow-x-hidden">
+          <main className="flex-1 w-full min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">
             {children}
           </main>
         </div>

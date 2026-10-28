@@ -41,5 +41,7 @@
   "theme_color": "#FF5A00",
   "background_color": "#0A0A0F",
   "display": "standalone",
-  "start_url": "/"
+  "start_url": "https://www.bulkskart.com/",
+  "id": "https://www.bulkskart.com/",
+  "lang": "en-IN"
 }

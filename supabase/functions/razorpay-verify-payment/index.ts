@@ -27,9 +27,19 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const keySecret   = Deno.env.get('RAZORPAY_KEY_SECRET')!;
+    const keySecret   = (Deno.env.get('RAZORPAY_KEY_SECRET') || '').trim();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    if (!keySecret) {
+      return new Response(JSON.stringify({
+        error: 'Payment gateway is not configured. Please contact support.',
+        code: 'RAZORPAY_KEYS_MISSING',
+      }), {
+        status: 503,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
 
     const authHeader = req.headers.get('Authorization') ?? '';
     const supabase = createClient(supabaseUrl, serviceKey);

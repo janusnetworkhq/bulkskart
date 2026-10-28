@@ -229,22 +229,7 @@ INSERT INTO products (
   true, true, true, 'top_pick', 2210
 ),
 
--- 12. Vietnam - Red River Technical Garments
-(
-  'e1000001-0000-0000-0000-000000000012', '158f4042-7fcc-4c77-bcbc-34474341b979',
-  'EN ISO 20471 Class 3 Waterproof Breathable Hi-Vis Industrial Parka Jacket',
-  'en-iso-20471-waterproof-hivis-industrial-parka',
-  'Heavy-duty industrial safety jacket tailored from 300D Oxford polyester PU coated waterproof shell, featuring 3M Scotchlite reflective stripes, storm flap zipper, and detachable fleece thermal liner.',
-  'Compliance: EN ISO 20471 Class 3, EN 343 Class 3:3 | Shell Fabric: 300D Oxford 100% Polyester with Waterproof PU Coating 5000mm | Lining: 100% Polyester Taffeta + 280gsm Detachable Anti-Pill Fleece Vest | Reflective Tape: 5cm 3M Scotchlite 8906 Heat-Transfer Tape | Pockets: Concealed ID pocket, radio loop, dual cargo pockets',
-  100, 'pcs', 18.5, 26.0, 'USD',
-  ARRAY[
-    'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_19173084-f8d1-4d6c-a8e1-71aad2b17bb7.jpg',
-    'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_4762d137-8b97-4d44-97fd-87d59b2a85f4.jpg'
-  ],
-  ARRAY['High-Vis Workwear', 'Safety Parka', 'EN ISO 20471', 'Reflective Jacket'],
-  ARRAY['Germany', 'United States', 'Japan', 'United Kingdom', 'UAE'],
-  true, false, false, NULL, 1120
-),
+-- 12. Vietnam Red River Technical Garments product removed (inappropriate mismatched image)
 
 -- 13. UAE - Emirates Petrochem & Polymers
 (

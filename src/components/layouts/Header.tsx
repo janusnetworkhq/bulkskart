@@ -11,6 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useCurrency, useCountry } from '@/contexts/CurrencyContext';
 import { usePrefetch } from '@/hooks/usePrefetch';
 import NotificationBell from '@/components/common/NotificationBell';
+import CopyPublicProfileButton from '@/components/common/CopyPublicProfileButton';
 import { toast } from 'sonner';
 import {
   Menu, Bell, ChevronDown, LogOut, User, LayoutDashboard,
@@ -66,7 +67,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export default function Header() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, loading, resolvedRole, displayName, dashboardPath } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const {
     countryConfig,
@@ -89,9 +90,10 @@ export default function Header() {
   };
 
   const getNotifLink = () => {
-    if (!profile) return '/auth';
-    if (profile.role === 'supplier') return '/dashboard/supplier/notifications';
-    return '/dashboard/buyer/notifications';
+    if (!user) return '/auth';
+    if (resolvedRole === 'supplier' || profile?.role === 'supplier') return '/dashboard/supplier/notifications';
+    if (resolvedRole === 'buyer' || profile?.role === 'buyer') return '/dashboard/buyer/notifications';
+    return dashboardPath !== '/auth' ? `${dashboardPath}/notifications` : '/auth';
   };
 
   // Show "View Plans" only after user scrolls past hero (~420px) and only in dark mode
@@ -127,9 +129,12 @@ export default function Header() {
     }
   };
   const getDashboardLink = () => {
-    if (!profile) return '/auth';
-    if (profile.role === 'admin') return '/dashboard/admin';
-    if (profile.role === 'supplier') return '/dashboard/supplier';
+    if (!user) return '/auth';
+    if (loading) return dashboardPath !== '/auth' ? dashboardPath : '/auth';
+    if (dashboardPath && dashboardPath !== '/auth') return dashboardPath;
+    if (!profile && !resolvedRole) return '/auth';
+    if (resolvedRole === 'admin' || profile?.role === 'admin') return '/dashboard/admin';
+    if (resolvedRole === 'supplier' || profile?.role === 'supplier') return '/dashboard/supplier';
     return '/dashboard/buyer';
   };
   const isActive = (href: string) => location.pathname === href;
@@ -165,10 +170,11 @@ export default function Header() {
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0" aria-label="Toggle theme">
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </Button>
+          <CopyPublicProfileButton compact />
           <NotificationBell />
           {user && profile ? (
             <Link to={getDashboardLink()} className="w-7 h-7 rounded-full bg-[#FF5A00] flex items-center justify-center text-white text-xs font-bold shrink-0">
-              {profile.full_name?.[0]?.toUpperCase() ?? 'U'}
+              {(displayName || profile?.full_name || 'U')[0]?.toUpperCase() ?? 'U'}
             </Link>
           ) : (
             <Link to="/auth">
@@ -278,20 +284,23 @@ export default function Header() {
                     <>
                       <div className="h-px bg-border my-2" />
                       <div className="px-3 py-2 bg-muted/40 rounded-lg mb-1 border border-border">
-                        <p className="text-xs font-semibold text-foreground truncate">{profile?.full_name || 'My Account'}</p>
+                        <p className="text-xs font-semibold text-foreground truncate">{displayName || profile?.full_name || 'My Account'}</p>
                         <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
                         <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary uppercase">
-                          {profile?.role === 'supplier' ? 'Supplier' : 'Buyer'}
+                          {resolvedRole === 'supplier' || profile?.role === 'supplier' ? 'Supplier' : resolvedRole === 'admin' ? 'Admin' : 'Buyer'}
                         </span>
                       </div>
                       <Link to={getDashboardLink()} onClick={() => setMobileOpen(false)}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-md text-sm text-foreground hover:bg-muted min-h-12">
                         <LayoutDashboard className="w-4 h-4" /> Dashboard
                       </Link>
-                      <Link to={profile?.role === 'supplier' ? '/dashboard/supplier/profile' : '/dashboard/buyer/profile'} onClick={() => setMobileOpen(false)}
+                      <Link to={(resolvedRole === 'supplier' || profile?.role === 'supplier') ? '/dashboard/supplier/profile' : '/dashboard/buyer/profile'} onClick={() => setMobileOpen(false)}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-md text-sm text-foreground hover:bg-muted min-h-12">
                         <User className="w-4 h-4" /> Profile & Settings
                       </Link>
+                      <div className="px-1 py-1">
+                        <CopyPublicProfileButton />
+                      </div>
                       <Link to="/settings/delete-account" onClick={() => setMobileOpen(false)}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-md text-sm text-destructive hover:bg-destructive/10 min-h-12">
                         <AlertCircle className="w-4 h-4" /> Delete Account
@@ -412,24 +421,25 @@ export default function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <CopyPublicProfileButton />
           <NotificationBell />
           {user ? (
             <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" aria-label="My Account Menu" className="h-9 px-2 gap-2 text-[13px] font-medium text-foreground hover:bg-muted">
                   <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
-                    {profile?.full_name?.[0]?.toUpperCase() ?? user.email?.[0]?.toUpperCase() ?? 'U'}
+                    {(displayName || profile?.full_name || user.email || 'U')[0]?.toUpperCase() ?? 'U'}
                   </div>
-                  <span className="max-w-[80px] truncate">{profile?.full_name?.split(' ')[0] ?? 'Account'}</span>
+                  <span className="max-w-[80px] truncate">{(displayName || profile?.full_name || 'Account').split(' ')[0]}</span>
                   <ChevronDown className="w-3.5 h-3.5 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-popover border-border">
                 <div className="px-2 py-1.5 border-b border-border">
-                  <p className="text-xs font-semibold text-foreground truncate">{profile?.full_name || 'My Account'}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{displayName || profile?.full_name || 'My Account'}</p>
                   <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
                   <span className="inline-block mt-1 text-[10px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary uppercase">
-                    {profile?.role === 'supplier' ? 'Supplier' : 'Buyer'}
+                    {resolvedRole === 'supplier' || profile?.role === 'supplier' ? 'Supplier' : resolvedRole === 'admin' ? 'Admin' : 'Buyer'}
                   </span>
                 </div>
                 <DropdownMenuItem asChild>
@@ -438,7 +448,7 @@ export default function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to={profile?.role === 'supplier' ? '/dashboard/supplier/profile' : '/dashboard/buyer/profile'} className="flex items-center gap-2 cursor-pointer">
+                  <Link to={(resolvedRole === 'supplier' || profile?.role === 'supplier') ? '/dashboard/supplier/profile' : '/dashboard/buyer/profile'} className="flex items-center gap-2 cursor-pointer">
                     <User className="w-4 h-4" /> Profile & Settings
                   </Link>
                 </DropdownMenuItem>

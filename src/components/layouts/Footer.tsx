@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import BrandLogo from '@/components/common/BrandLogo';
-import { Globe, Linkedin, Twitter, Facebook, Instagram, Youtube, Mail } from 'lucide-react';
+import { Globe, Linkedin, Twitter, Facebook, Instagram, Youtube, Mail, MessageSquare } from 'lucide-react';
+import { WHATSAPP_CHAT_URL, WHATSAPP_DISPLAY, WHATSAPP_MESSAGE_URL } from '@/lib/supportContact';
 
 const footerLinks = {
   Products: [
@@ -18,6 +19,7 @@ const footerLinks = {
   ],
   'For Buyers': [
     { label: 'Post Requirement', href: '/post-requirement' },
+    { label: 'Free Delivery & Order Loan', href: '/loan-calculator' },
     { label: 'AI Import & Export Assistance', href: '/trade-assistant' },
     { label: 'Buyer Resources', href: '/how-it-works' },
     { label: 'Trade Guide', href: '/how-it-works' },
@@ -58,9 +60,15 @@ export default function Footer() {
             <p className="text-xs text-muted-foreground leading-relaxed mb-3">
               Global B2B bulk trade platform by <span className="font-semibold text-foreground">BulkSkart</span>. Connecting verified manufacturers with buyers worldwide.
             </p>
-            <div className="space-y-1 mb-4">
+            <div className="space-y-1.5 mb-4">
               <a href="mailto:info@bulkskart.com" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
                 <Mail className="w-3 h-3 text-primary shrink-0" /> info@bulkskart.com
+              </a>
+              <a href={WHATSAPP_CHAT_URL} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
+                <MessageSquare className="w-3 h-3 text-[#25D366] shrink-0" /> WhatsApp {WHATSAPP_DISPLAY}
+              </a>
+              <a href={WHATSAPP_MESSAGE_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#128C7E] hover:underline">
+                Chat on WhatsApp
               </a>
             </div>
             <div className="flex gap-3">

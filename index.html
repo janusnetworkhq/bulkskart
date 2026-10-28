@@ -21,8 +21,8 @@
 
         try {
           var saved = localStorage.getItem('bs-theme');
-          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var theme = saved || (prefersDark ? 'dark' : 'light');
+          // Match ThemeContext: persist light/dark; default BulkSkart brand = dark
+          var theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
           if (theme === 'dark') {
             document.documentElement.classList.add('dark');
             document.documentElement.classList.remove('light');
@@ -47,24 +47,25 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#FF5A00" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <title>Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace</title>
-    <meta name="description" content="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart." />
-    <meta name="keywords" content="B2B bulk marketplace, verified manufacturers India, wholesale sourcing, RFQ platform, bulk trade, wholesale suppliers, MOQ, bulk pricing" />
+    <title>BulkSkart | B2B Wholesale Marketplace &amp; Bulk Suppliers in India</title>
+    <meta name="description" content="Find verified manufacturers and wholesale suppliers in India. Compare bulk prices, post free RFQs, and source factory-direct products on BulkSkart." />
+    <meta name="keywords" content="B2B marketplace India, wholesale suppliers India, bulk suppliers, manufacturers in India, post RFQ, factory direct wholesale, MOQ, bulk buying" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Bulkskart" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bulkskart" />
     <meta property="og:url" content="https://www.bulkskart.com/" />
-    <meta property="og:title" content="Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace" />
-    <meta property="og:description" content="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart." />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:title" content="BulkSkart | B2B Wholesale Marketplace &amp; Bulk Suppliers in India" />
+    <meta property="og:description" content="Find verified manufacturers and wholesale suppliers in India. Compare bulk prices, post free RFQs, and source factory-direct products on BulkSkart." />
     <meta property="og:image" content="https://www.bulkskart.com/brand/bulkskart-logo.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Bulkskart B2B Marketplace Official Logo" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@bulkskart" />
-    <meta name="twitter:title" content="Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace" />
-    <meta name="twitter:description" content="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart." />
+    <meta name="twitter:title" content="BulkSkart | B2B Wholesale Marketplace &amp; Bulk Suppliers in India" />
+    <meta name="twitter:description" content="Find verified manufacturers and wholesale suppliers in India. Compare bulk prices, post free RFQs, and source factory-direct products on BulkSkart." />
     <meta name="twitter:image" content="https://www.bulkskart.com/brand/bulkskart-logo.jpg" />
     <!-- Organization Schema with official logo URL for Google Search Knowledge Graph and Favicon -->
     <script type="application/ld+json">
@@ -86,20 +87,44 @@
             "height": 630
           },
           "image": "https://www.bulkskart.com/brand/bulkskart-logo.jpg",
-          "description": "India's #1 B2B Bulk Wholesale Marketplace connecting verified manufacturers with global buyers."
+          "legalName": "Tech Pod AI Database Private Limited",
+          "description": "B2B wholesale marketplace for verified manufacturers and bulk suppliers in India. Buyers post RFQs and compare factory quotations.",
+          "foundingDate": "2024",
+          "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "IN"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "contact@techpodai.com",
+            "url": "https://www.bulkskart.com/contact",
+            "availableLanguage": ["English", "Hindi"]
+          },
+          "sameAs": [
+            "https://linkedin.com/company/techpodai",
+            "https://twitter.com/techpodai",
+            "https://facebook.com/techpodai",
+            "https://instagram.com/techpodai",
+            "https://youtube.com/@techpodai"
+          ]
         },
         {
           "@type": "WebSite",
           "@id": "https://www.bulkskart.com/#website",
-          "url": "https://www.bulkskart.com",
+          "url": "https://www.bulkskart.com/",
           "name": "BulkSkart",
-          "description": "Global B2B Bulk Marketplace · Source • Supply • Scale",
+          "description": "Find verified manufacturers and wholesale suppliers in India. Compare bulk prices and post free RFQs.",
+          "inLanguage": "en-IN",
           "publisher": {
             "@id": "https://www.bulkskart.com/#organization"
           },
           "potentialAction": {
             "@type": "SearchAction",
-            "target": "https://www.bulkskart.com/products?q={search_term_string}",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://www.bulkskart.com/products?q={search_term_string}"
+            },
             "query-input": "required name=search_term_string"
           }
         }
@@ -107,6 +132,8 @@
     }
     </script>
     <link rel="canonical" href="https://www.bulkskart.com/" />
+    <link rel="alternate" hreflang="en-IN" href="https://www.bulkskart.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.bulkskart.com/" />
     <meta name="msvalidate.01" content="718E6DDD7A09C0EF1D97B4EB39EDEF6E" />
     <!-- Efficient preconnects (critical origins for rapid initial paint) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -139,75 +166,28 @@
     })(window,document,'script','dataLayer','GTM-T4HWCGKD');</script>
     <!-- End Google Tag Manager -->
 
-    <!-- JSON-LD: Organization -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "@id": "https://www.bulkskart.com/#organization",
-      "name": "BulkSkart",
-      "legalName": "Tech Pod AI Database Private Limited",
-      "url": "https://www.bulkskart.com/",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://www.bulkskart.com/favicon.svg",
-        "width": 32,
-        "height": 32
-      },
-      "description": "BulkSkart is India's #1 B2B bulk wholesale marketplace connecting verified manufacturers with global buyers. Post RFQs free and receive quotes within 24 hours.",
-      "foundingDate": "2024",
-      "address": {
-        "@type": "PostalAddress",
-        "addressCountry": "IN"
-      },
-      "contactPoint": [
-        {
-          "@type": "ContactPoint",
-          "contactType": "customer support",
-          "email": "contact@techpodai.com",
-          "url": "https://www.bulkskart.com/contact",
-          "availableLanguage": ["English", "Hindi"]
-        }
-      ],
-      "sameAs": [
-        "https://linkedin.com/company/techpodai",
-        "https://twitter.com/techpodai",
-        "https://facebook.com/techpodai",
-        "https://instagram.com/techpodai",
-        "https://youtube.com/@techpodai"
-      ]
-    }
-    </script>
-
-    <!-- JSON-LD: WebSite (enables Google Sitelinks Search Box) -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "@id": "https://www.bulkskart.com/#website",
-      "name": "BulkSkart",
-      "url": "https://www.bulkskart.com/",
-      "description": "India's #1 B2B bulk wholesale marketplace. Connect with 50,000+ verified manufacturers, post RFQs for free, and source bulk products at wholesale prices.",
-      "publisher": {
-        "@id": "https://www.bulkskart.com/#organization"
-      },
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": "https://www.bulkskart.com/products?q={search_term_string}"
-        },
-        "query-input": "required name=search_term_string"
-      },
-      "inLanguage": "en-IN"
-    }
-    </script>
   </head>
   <body>
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T4HWCGKD"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
+    <noscript>
+      <main>
+        <h1>BulkSkart — B2B wholesale marketplace and bulk suppliers in India</h1>
+        <p>Find verified manufacturers, compare factory prices, and post a free buying requirement (RFQ).</p>
+        <nav>
+          <a href="https://www.bulkskart.com/products">Products</a>
+          <a href="https://www.bulkskart.com/manufacturers">Manufacturers</a>
+          <a href="https://www.bulkskart.com/requirements">Buying requirements</a>
+          <a href="https://www.bulkskart.com/wholesale-suppliers">Wholesale suppliers</a>
+          <a href="https://www.bulkskart.com/manufacturers-in-india">Manufacturers in India</a>
+          <a href="https://www.bulkskart.com/pricing">Pricing</a>
+          <a href="https://www.bulkskart.com/blog">Blog</a>
+          <a href="https://www.bulkskart.com/contact">Contact</a>
+        </nav>
+      </main>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

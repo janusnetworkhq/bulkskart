@@ -32,6 +32,7 @@ import TrustAndFinalCTASection from '@/components/home/TrustAndFinalCTASection';
 import PostRequirementsHomeSection from '@/components/home/PostRequirementsHomeSection';
 import PlansHomeSection from '@/components/home/PlansHomeSection';
 import ReviewsHomeSection from '@/components/home/ReviewsHomeSection';
+import OrderBenefitsSection from '@/components/home/OrderBenefitsSection';
 import SafeImage, { toWebPUrl, buildWebPSrcSet } from '@/components/common/SafeImage';
 
 // ── Helpers ─────────────────────────────────────────────
@@ -596,10 +597,11 @@ export default function HomePage() {
   return (
     <MainLayout>
       <PageMeta
-        title="Bulkskart – India’s B2B Bulk Buying & Wholesale Marketplace"
-        description="Buy in bulk directly from manufacturers and wholesalers across India. Post RFQs, compare quotations and find verified B2B suppliers on Bulkskart."
-        keywords="B2B bulk marketplace, verified manufacturers India, wholesale suppliers, bulk buying, post RFQ, quotation comparison, MOQ, bulk pricing"
+        title="BulkSkart | B2B Wholesale Marketplace & Bulk Suppliers in India"
+        description="Find verified manufacturers and wholesale suppliers in India. Every BulkSkart order includes free delivery. Compare bulk prices, estimate an order installment, post free RFQs, and source factory-direct products."
+        keywords="B2B marketplace India, wholesale suppliers India, bulk suppliers, manufacturers in India, post RFQ, factory direct wholesale, MOQ, bulk buying"
         canonical="https://www.bulkskart.com/"
+        ogImage="https://www.bulkskart.com/brand/bulkskart-logo.jpg"
         ogType="website"
         breadcrumbs={[
           { name: 'Home', item: '/' },
@@ -625,43 +627,26 @@ export default function HomePage() {
             question: "Can suppliers receive live buyer requirements?",
             answer: "Yes, verified manufacturers receive instant alerts for live buying tenders matching their product categories and can submit direct factory quotations to buyers.",
           },
-        ]}
-        jsonLd={[
           {
-            '@context': 'https://schema.org',
-            '@type': 'WebSite',
-            name: 'BulkSkart',
-            url: 'https://www.bulkskart.com',
-            description: "Global B2B Wholesale Marketplace & Manufacturer Sourcing Platform",
-            potentialAction: {
-              '@type': 'SearchAction',
-              target: {
-                '@type': 'EntryPoint',
-                urlTemplate: 'https://www.bulkskart.com/products?search={search_term_string}',
-              },
-              'query-input': 'required name=search_term_string',
-            },
+            question: "Is delivery free on BulkSkart?",
+            answer: "Yes. Free delivery applies to every order placed on BulkSkart. No delivery fee is added at checkout, for any order value or product category.",
           },
           {
-            '@context': 'https://schema.org',
-            '@type': 'Organization',
-            name: 'BulkSkart',
-            legalName: 'BulkSkart B2B Marketplace',
-            url: 'https://www.bulkskart.com',
-            logo: 'https://www.bulkskart.com/brand/bulkskart-logo.jpg',
-            sameAs: [
-              'https://twitter.com/bulkskart',
-              'https://www.linkedin.com/company/bulkskart',
-              'https://www.facebook.com/bulkskart',
-            ],
-            contactPoint: {
-              '@type': 'ContactPoint',
-              telephone: '+91-800-BULK-SKART',
-              contactType: 'customer service',
-              availableLanguage: ['English', 'Hindi'],
-            },
+            question: "Can I estimate a monthly installment for a bulk order?",
+            answer: "Yes. The order loan calculator on the homepage estimates a monthly installment from the order value, down payment, interest rate, and tenure. Delivery on that order stays free. The figure is for planning and is not a credit approval.",
           },
         ]}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebPage',
+          '@id': 'https://www.bulkskart.com/#webpage',
+          url: 'https://www.bulkskart.com/',
+          name: 'BulkSkart | B2B Wholesale Marketplace & Bulk Suppliers in India',
+          description: 'Find verified manufacturers and wholesale suppliers in India. Every BulkSkart order includes free delivery. Compare bulk prices, estimate an order installment, post free RFQs, and source factory-direct products.',
+          isPartOf: { '@id': 'https://www.bulkskart.com/#website' },
+          about: { '@id': 'https://www.bulkskart.com/#organization' },
+          inLanguage: 'en-IN',
+        }}
       />
 
       {/* Mobile search bar now lives in Header — no duplicate here */}
@@ -680,6 +665,9 @@ export default function HomePage() {
           SECTION 3: FEATURED PRODUCTS (IMMEDIATE VIEW - ZERO LOADING DELAY)
       ═══════════════════════════════════════════════════ */}
       <FeaturedProductsSection />
+
+      {/* Free delivery on every order + order loan calculator */}
+      <OrderBenefitsSection />
 
       {/* ═══════════════════════════════════════════════════
           SECTION 4: CATEGORIES (PRODUCT & INDUSTRIAL CATEGORIES)

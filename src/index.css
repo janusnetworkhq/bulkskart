@@ -3,61 +3,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design system: Dark — restrained typography on a dark base
-   Base #0B0F19 / card #0F172A / primary text #E5E7EB / secondary text #9CA3AF / 1px border #1F2937
-   Near-zero shadows, no decorative strokes; hierarchy comes purely from font size, weight, and spacing */
+/* Design system: Light (:root / .light) + Dark (.dark)
+   Brand orange primary; hierarchy from type size/weight/spacing */
 
 @layer base {
-  :root {
+  /* Light theme — used when html has .light (or no .dark) */
+  :root,
+  .light {
     --radius: 0.5rem;
 
-    /* Deep navy-black base / near-white primary text */
-    --background: 222 40% 7%;
-    --foreground: 220 14% 90%;
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 220 14% 90%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 220 14% 90%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Brand Orange (#FF5A00 / #FF5A1F) primary theme color */
+    /* Brand Orange (#FF5A00 / #FF5A1F) */
     --primary: 21 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 220 14% 90%;
+    --secondary: 210 16% 93%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 217 33% 15%;
-    --muted-foreground: 218 11% 65%;
+    --muted: 210 16% 94%;
+    --muted-foreground: 215 16% 40%;
 
-    --accent: 21 95% 18%;
-    --accent-foreground: 21 100% 65%;
+    --accent: 21 100% 96%;
+    --accent-foreground: 21 90% 35%;
 
-    --destructive: 0 63% 52%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    /* 1px low-contrast border, taking over the separation role that shadows would otherwise play */
-    --border: 215 28% 17%;
-    --input: 215 28% 20%;
+    --border: 214 20% 88%;
+    --input: 214 20% 90%;
     --ring: 21 100% 50%;
 
     --chart-1: 21 100% 50%;
-    --chart-2: 218 11% 65%;
-    --chart-3: 160 50% 52%;
-    --chart-4: 262 60% 68%;
-    --chart-5: 30 70% 60%;
+    --chart-2: 215 16% 47%;
+    --chart-3: 160 50% 40%;
+    --chart-4: 262 60% 55%;
+    --chart-5: 30 70% 50%;
 
-    --sidebar-background: 222 45% 6%;
-    --sidebar-foreground: 220 14% 90%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 21 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 21 95% 18%;
-    --sidebar-accent-foreground: 21 100% 65%;
-    --sidebar-border: 215 28% 15%;
+    --sidebar-accent: 21 100% 96%;
+    --sidebar-accent-foreground: 21 90% 35%;
+    --sidebar-border: 214 20% 90%;
     --sidebar-ring: 21 100% 50%;
   }
 
-  /* The theme is dark by default; .dark keeps identical values as a compatibility layer */
+  /* Dark theme — applied when html has class "dark" */
   .dark {
     --radius: 0.5rem;
     --background: 222 40% 7%;
@@ -79,6 +78,21 @@
     --border: 215 28% 17%;
     --input: 215 28% 20%;
     --ring: 21 100% 50%;
+
+    --chart-1: 21 100% 50%;
+    --chart-2: 218 11% 65%;
+    --chart-3: 160 50% 52%;
+    --chart-4: 262 60% 68%;
+    --chart-5: 30 70% 60%;
+
+    --sidebar-background: 222 45% 6%;
+    --sidebar-foreground: 220 14% 90%;
+    --sidebar-primary: 21 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 21 95% 18%;
+    --sidebar-accent-foreground: 21 100% 65%;
+    --sidebar-border: 215 28% 15%;
+    --sidebar-ring: 21 100% 50%;
   }
 }
 

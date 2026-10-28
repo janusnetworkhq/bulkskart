@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { BULKSKART_ICON_URL } from '@/constants/branding';
 
 export interface BreadcrumbItem {
   name: string;
@@ -27,7 +26,7 @@ export interface PageMetaProps {
   faq?: FAQItem[];
 }
 
-const DEFAULT_IMAGE = BULKSKART_ICON_URL;
+const DEFAULT_IMAGE = 'https://www.bulkskart.com/brand/bulkskart-logo.jpg';
 const SITE_NAME = 'BulkSkart';
 const BASE_URL = 'https://www.bulkskart.com';
 
@@ -119,12 +118,35 @@ export default function PageMeta({
     setMetaTag('property', 'og:type', ogType);
     setMetaTag('property', 'og:site_name', SITE_NAME);
 
-    const activeImage = ogImage || DEFAULT_IMAGE;
+    const activeImage = ogImage
+      ? (ogImage.startsWith('http') ? ogImage : `${BASE_URL}${ogImage.startsWith('/') ? ogImage : `/${ogImage}`}`)
+      : DEFAULT_IMAGE;
     setMetaTag('property', 'og:image', activeImage);
     setMetaTag('property', 'og:image:alt', formattedTitle);
+    setMetaTag('property', 'og:image:width', '1200');
+    setMetaTag('property', 'og:image:height', '630');
+    setMetaTag('property', 'og:locale', 'en_IN');
 
     const fullCanonical = sanitizeCanonicalUrl(canonical);
     setMetaTag('property', 'og:url', fullCanonical);
+
+    const setLink = (rel: string, href: string, extra?: Record<string, string>) => {
+      const selector = extra?.hreflang
+        ? `link[rel="${rel}"][hreflang="${extra.hreflang}"]`
+        : `link[rel="${rel}"]:not([hreflang])`;
+      let node = document.querySelector(selector);
+      if (!node) {
+        node = document.createElement('link');
+        node.setAttribute('rel', rel);
+        if (extra) {
+          Object.entries(extra).forEach(([k, v]) => node!.setAttribute(k, v));
+        }
+        document.head.appendChild(node);
+      }
+      node.setAttribute('href', href);
+    };
+    setLink('alternate', fullCanonical, { hreflang: 'en-IN' });
+    setLink('alternate', fullCanonical, { hreflang: 'x-default' });
 
     // 4. Twitter Card
     setMetaTag('name', 'twitter:card', twitterCard);

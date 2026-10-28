@@ -763,12 +763,13 @@ export async function getRequirements(options?: {
 }): Promise<Requirement[]> {
   let query = supabase
     .from('requirements')
-    .select('*, profiles!buyer_id(id,full_name,email), categories!category_id(id,name,slug)')
+    .select('*, profiles!buyer_id(id,full_name,email,phone), categories!category_id(id,name,slug)')
     .order('created_at', { ascending: false })
     .limit(options?.limit ? options.limit * 2 : PAGE_SIZE * 2);
 
-  if (options?.status) query = query.eq('status', options.status);
-  else query = query.eq('status', 'active');
+  // 'all' = no status filter (buyer dashboard). Default public listings stay active-only.
+  if (options?.status && options.status !== 'all') query = query.eq('status', options.status);
+  else if (options?.status !== 'all' && !options?.buyerId) query = query.eq('status', 'active');
   if (options?.categoryId) query = query.eq('category_id', options.categoryId);
   if (options?.search) query = query.ilike('title', `%${options.search}%`);
   if (options?.buyerId) query = query.eq('buyer_id', options.buyerId);
@@ -789,6 +790,9 @@ export async function getRequirements(options?: {
   const uniqueItems: Requirement[] = [];
 
   const maxItems = options?.limit ?? PAGE_SIZE;
+  const isTestTitle = (t: string) =>
+    /\b(test|debug|timed|timeout)\b/i.test(t) ||
+    /^test\b/i.test(t.trim());
 
   for (const item of data) {
     if (!item || !item.id) continue;
@@ -796,6 +800,8 @@ export async function getRequirements(options?: {
     if (item.req_number && excludeReqNumSet.has(item.req_number)) continue;
 
     const normTitle = (item.title || '').trim().toLowerCase();
+    // Never surface test/debug RFQs in production listings
+    if (isTestTitle(item.title || '') && !options?.buyerId) continue;
     if (seenIds.has(item.id)) continue;
     if (item.req_number && seenReqNums.has(item.req_number)) continue;
     if (normTitle && seenTitles.has(normTitle)) continue;
@@ -804,7 +810,14 @@ export async function getRequirements(options?: {
     if (item.req_number) seenReqNums.add(item.req_number);
     if (normTitle) seenTitles.add(normTitle);
 
-    uniqueItems.push(item);
+    const buyerPhone =
+      (item as any).profiles?.phone ||
+      (item as any).buyer_phone ||
+      null;
+    uniqueItems.push({
+      ...item,
+      buyer_phone: buyerPhone,
+    } as Requirement);
     if (uniqueItems.length >= maxItems) break;
   }
 
@@ -846,8 +859,87 @@ export async function incrementRequirementViewCount(id: string): Promise<void> {
 }
 
 export async function createRequirement(payload: Partial<Requirement>): Promise<{ error: string | null; id?: string }> {
-  const { data, error } = await supabase.from('requirements').insert(payload as Requirement).select('id').maybeSingle();
-  return { error: error?.message ?? null, id: data?.id };
+  // Resolve access token with a hard timeout — getSession() can hang on auth locks.
+  let accessToken: string | null = null;
+  try {
+    const sessionResult = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+    ]);
+    accessToken = sessionResult && 'data' in sessionResult
+      ? sessionResult.data.session?.access_token ?? null
+      : null;
+  } catch {
+    accessToken = null;
+  }
+
+  if (!accessToken) {
+    // Fallback: read persisted session from localStorage (supabase-js default key)
+    try {
+      const raw = localStorage.getItem(
+        Object.keys(localStorage).find((k) => k.startsWith('sb-') && k.endsWith('-auth-token')) || '',
+      );
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        accessToken = parsed?.access_token || parsed?.currentSession?.access_token || null;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!accessToken) {
+    return { error: 'Your session expired. Please sign in again and retry.' };
+  }
+
+  const { supabaseUrl, supabaseAnonKey } = await import('@/db/supabase');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/requirements?select=id`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+        'X-Client-Info': 'bulkskart-web',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text();
+    let body: unknown = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+
+    if (!res.ok) {
+      const msg =
+        (body as { message?: string; error_description?: string })?.message ||
+        (body as { error_description?: string })?.error_description ||
+        `Publish failed (${res.status})`;
+      return { error: msg };
+    }
+
+    const row = Array.isArray(body) ? body[0] : body;
+    const id = (row as { id?: string } | null)?.id;
+    if (!id) {
+      return { error: 'RFQ was created but no ID was returned. Please refresh your dashboard.' };
+    }
+    return { error: null, id };
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { error: 'Publish timed out. Please check your connection and try again.' };
+    }
+    return { error: err instanceof Error ? err.message : 'Failed to publish RFQ.' };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ============================================================
@@ -1356,6 +1448,148 @@ export function getSupplierInquiries(companyId?: string, userId?: string): Suppl
     }
     return false;
   });
+}
+
+/** One-time welcome seed flag per manufacturer company */
+function welcomeLeadsFlagKey(companyId: string) {
+  return `bulkskart_mfr_welcome_leads_v1_${companyId}`;
+}
+
+export function hasManufacturerWelcomeLeads(companyId: string): boolean {
+  if (!companyId) return false;
+  try {
+    if (localStorage.getItem(welcomeLeadsFlagKey(companyId)) === '1') return true;
+  } catch {
+    /* ignore */
+  }
+  return getLocalInquiries().some((i) => i.id.startsWith(`welcome-lead-${companyId}-`));
+}
+
+/**
+ * Simulation: when a manufacturer joins, auto-deliver 5 sample buyer lead
+ * messages into their Messages inbox (inquiries tab). Idempotent per company.
+ */
+export function ensureManufacturerWelcomeLeads(
+  companyId: string,
+  companyName = 'Your Factory',
+  options?: { force?: boolean }
+): { seeded: boolean; inquiries: SupplierInquiry[] } {
+  if (!companyId) return { seeded: false, inquiries: [] };
+
+  if (!options?.force && hasManufacturerWelcomeLeads(companyId)) {
+    return { seeded: false, inquiries: getSupplierInquiries(companyId) };
+  }
+
+  const now = Date.now();
+  const leads: SupplierInquiry[] = [
+    {
+      id: `welcome-lead-${companyId}-1`,
+      conversation_id: `welcome-conv-${companyId}-1`,
+      supplier_company_id: companyId,
+      supplier_name: companyName,
+      sender_name: 'Verified Buyer Desk',
+      sender_email: 'procurement@sample-buyer.bulkskart',
+      sender_phone: '+91 90000 10001',
+      sender_company: 'Sample Trading House · West Zone',
+      subject: 'RFQ: Bulk raw material supply — urgent quote',
+      message:
+        'Welcome to BulkSkart. We are simulating a live buyer lead: please share MOQ, FOB/CIF pricing, lead time, and GST invoice terms for a trial bulk order. Reply in this thread to practice the manufacturer inbox.',
+      product_name: 'Industrial Bulk Lot (Sample Lead)',
+      target_quantity: 5000,
+      quantity_unit: 'Units',
+      created_at: new Date(now - 45_000).toISOString(),
+      status: 'new',
+      replies: [],
+    },
+    {
+      id: `welcome-lead-${companyId}-2`,
+      conversation_id: `welcome-conv-${companyId}-2`,
+      supplier_company_id: companyId,
+      supplier_name: companyName,
+      sender_name: 'OEM Procurement Cell',
+      sender_email: 'oem.sourcing@sample-buyer.bulkskart',
+      sender_phone: '+91 90000 10002',
+      sender_company: 'Sample OEM Works · South Zone',
+      subject: 'Need factory datasheet + tier pricing',
+      message:
+        'Simulated lead #2: Looking for manufacturer-direct rates with export packaging. Can you confirm capacity for the next 30 days and share a sample quotation template?',
+      product_name: 'OEM Component Pack (Sample Lead)',
+      target_quantity: 1200,
+      quantity_unit: 'Pieces',
+      created_at: new Date(now - 3 * 60_000).toISOString(),
+      status: 'new',
+      replies: [],
+    },
+    {
+      id: `welcome-lead-${companyId}-3`,
+      conversation_id: `welcome-conv-${companyId}-3`,
+      supplier_company_id: companyId,
+      supplier_name: companyName,
+      sender_name: 'Export House Desk',
+      sender_email: 'exports@sample-buyer.bulkskart',
+      sender_phone: '+91 90000 10003',
+      sender_company: 'Sample Export Consortium · North Zone',
+      subject: 'Container load inquiry — HS code & COA',
+      message:
+        'Simulated lead #3: Preparing a container booking. Please advise HS code, certificate of analysis availability, and earliest dispatch window from your plant.',
+      product_name: 'Export-Ready Commodity (Sample Lead)',
+      target_quantity: 18,
+      quantity_unit: 'Metric Tons',
+      created_at: new Date(now - 8 * 60_000).toISOString(),
+      status: 'new',
+      replies: [],
+    },
+    {
+      id: `welcome-lead-${companyId}-4`,
+      conversation_id: `welcome-conv-${companyId}-4`,
+      supplier_company_id: companyId,
+      supplier_name: companyName,
+      sender_name: 'Distributor Network',
+      sender_email: 'distro@sample-buyer.bulkskart',
+      sender_phone: '+91 90000 10004',
+      sender_company: 'Sample Distribution Hub · Central Zone',
+      subject: 'Repeat monthly PO — lock rate for 90 days',
+      message:
+        'Simulated lead #4: We want a rolling monthly PO. Share volume break discounts and whether you support scheduled deliveries to multiple warehouses.',
+      product_name: 'Recurring Supply Contract (Sample Lead)',
+      target_quantity: 800,
+      quantity_unit: 'Cartons',
+      created_at: new Date(now - 18 * 60_000).toISOString(),
+      status: 'new',
+      replies: [],
+    },
+    {
+      id: `welcome-lead-${companyId}-5`,
+      conversation_id: `welcome-conv-${companyId}-5`,
+      supplier_company_id: companyId,
+      supplier_name: companyName,
+      sender_name: 'Project Sourcing Desk',
+      sender_email: 'projects@sample-buyer.bulkskart',
+      sender_phone: '+91 90000 10005',
+      sender_company: 'Sample Projects Pvt · East Zone',
+      subject: 'Project tender — submit commercial + technical bid',
+      message:
+        'Simulated lead #5: Project tender simulation. Kindly reply with commercial offer, standard lead time, payment terms (LC/TT), and any plant visit slots this week.',
+      product_name: 'Project Tender Lot (Sample Lead)',
+      target_quantity: 25000,
+      quantity_unit: 'Units',
+      created_at: new Date(now - 32 * 60_000).toISOString(),
+      status: 'new',
+      replies: [],
+    },
+  ];
+
+  const withoutOldWelcome = getLocalInquiries().filter(
+    (i) => !i.id.startsWith(`welcome-lead-${companyId}-`)
+  );
+  saveLocalInquiries([...leads, ...withoutOldWelcome]);
+  try {
+    localStorage.setItem(welcomeLeadsFlagKey(companyId), '1');
+  } catch {
+    /* ignore */
+  }
+
+  return { seeded: true, inquiries: getSupplierInquiries(companyId) };
 }
 
 export function replyToSupplierInquiry(

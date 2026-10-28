@@ -32,9 +32,9 @@ import {
   Building2,
   RefreshCw,
 } from 'lucide-react';
-import SafeImage from '@/components/common/SafeImage';
 import { getCompanies } from '@/lib/api';
 import { DISTINCT_PIXABAY_COMPANY_IMAGES } from '@/lib/contentImages';
+import { matchProductImage } from '@/lib/productImageMatchingEngine';
 import type { Company } from '@/types/types';
 
 export interface DisplaySupplier {
@@ -48,6 +48,103 @@ export interface DisplaySupplier {
   logoUrl?: string;
   isVerified: boolean;
   industry?: string;
+  productFocus?: string;
+  /** Alibaba-style sample product listing title shown on the card */
+  sampleProduct?: string;
+}
+
+/**
+ * Lightweight catalog image — skips SafeImage matching overhead for known-good CDN URLs.
+ * Uses small WebP Unsplash derivatives + eager load for above-the-fold cards.
+ */
+function FastCatalogImage({
+  src,
+  alt,
+  priority = false,
+  className = '',
+}: {
+  src: string;
+  alt: string;
+  priority?: boolean;
+  className?: string;
+}) {
+  const [loaded, setLoaded] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  const optimized = React.useMemo(() => optimizeCatalogUrl(src), [src]);
+
+  return (
+    <div className={`relative w-full h-full overflow-hidden bg-slate-800 ${className}`}>
+      {!loaded && !failed && (
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800" />
+      )}
+      {!failed ? (
+        <img
+          src={optimized}
+          alt={alt}
+          width={480}
+          height={300}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          // React 18: pass as DOM attr for LCP on above-the-fold cards
+          {...({ fetchpriority: priority ? 'high' : 'low' } as React.ImgHTMLAttributes<HTMLImageElement>)}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            loaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs font-medium px-3 text-center">
+          {alt}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Shrink Unsplash/CDN payloads for card thumbnails (~40–80KB vs 300KB+) */
+function optimizeCatalogUrl(url: string): string {
+  if (!url) return url;
+  if (url.includes('images.unsplash.com')) {
+    try {
+      const u = new URL(url);
+      u.searchParams.set('auto', 'format');
+      u.searchParams.set('fit', 'crop');
+      u.searchParams.set('w', '480');
+      u.searchParams.set('h', '300');
+      u.searchParams.set('q', '70');
+      u.searchParams.set('fm', 'webp');
+      return u.toString();
+    } catch {
+      return url;
+    }
+  }
+  return url;
+}
+
+/** Simulation cycle: rotate unique supplier batches every 30 seconds */
+const ROTATION_SECONDS = 30;
+const DISPLAY_COUNT = 8;
+
+/** Fresh seed every page open / hard refresh — different users & visits get different batches */
+function createVisitSeed(): number {
+  const entropy =
+    (typeof performance !== 'undefined' ? performance.now() : 0) * 1000 +
+    Date.now() +
+    Math.floor(Math.random() * 1_000_000);
+  return (entropy >>> 0) || 1;
+}
+
+/** Deterministic Fisher–Yates shuffle (stable for a given seed) */
+function shuffleWithSeed<T>(items: T[], seed: number): T[] {
+  const arr = [...items];
+  let s = seed >>> 0;
+  for (let i = arr.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = s % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -65,53 +162,73 @@ const COUNTRY_FLAGS: Record<string, string> = {
   'Italy': '🇮🇹',
   'France': '🇫🇷',
   'Brazil': '🇧🇷',
+  'Sweden': '🇸🇪',
+  'Thailand': '🇹🇭',
 };
 
-// Curated verified suppliers with high-resolution authentic Pixabay industrial and factory photography
-const REFERENCE_SUPPLIERS: DisplaySupplier[] = [
+/**
+ * Optimized Alibaba-style B2B product catalog photos (licensed Unsplash CDN).
+ * Small WebP derivatives load fast on the landing grid (~40–80KB each).
+ */
+const p = (id: string) =>
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=480&h=300&q=70&fm=webp`;
+
+/**
+ * Alibaba factory-style sample catalog — company + sample product listing titles
+ * inspired by verified B2B manufacturer directories (images from licensed CDNs).
+ */
+const REFERENCE_SUPPLIERS_RAW: Array<Omit<DisplaySupplier, 'img'> & { img: string }> = [
   {
     id: 'ref-mfr-abc',
-    name: 'ABC Industries Private Limited',
-    slug: 'abc-industries-private-limited',
-    country: 'India',
-    flag: '🇮🇳',
-    img: 'https://cdn.pixabay.com/photo/2016/11/29/09/32/welding-1868731_1280.jpg',
+    name: 'Dongguan Apex CNC Co., Ltd.',
+    slug: 'dongguan-apex-cnc',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1565793298595-6a879b1d9492'),
     logoType: 'aubc',
     isVerified: true,
-    industry: 'Precision Engineering & Metal Fabrication',
+    industry: 'Industrial Machinery',
+    productFocus: 'CNC machined steel components',
+    sampleProduct: 'High Precision 5-Axis CNC Milling Center',
   },
   {
     id: 'ref-mfr-gps',
-    name: 'Global Pack Solutions',
-    slug: 'global-pack-solutions',
-    country: 'China',
-    flag: '🇨🇳',
-    img: 'https://cdn.pixabay.com/photo/2016/11/21/14/53/boxes-1845814_1280.jpg',
+    name: 'Ahmedabad Crown Packaging Mfg Corp.',
+    slug: 'ahmedabad-crown-packaging',
+    country: 'India',
+    flag: '🇮🇳',
+    img: p('photo-1530587191325-3db32d826c18'),
     logoType: 'orange_box',
     isVerified: true,
-    industry: 'Sustainable Packaging & Industrial Containers',
+    industry: 'Packaging Machinery',
+    productFocus: 'corrugated carton packaging',
+    sampleProduct: 'Automatic Multi-Head Weigher Packaging Machine',
   },
   {
     id: 'ref-mfr-shakti',
-    name: 'Shakti Electricals',
+    name: 'Shakti Electricals Switchgear Pvt Ltd',
     slug: 'shakti-electricals',
     country: 'India',
     flag: '🇮🇳',
-    img: 'https://cdn.pixabay.com/photo/2016/11/29/08/41/cable-1868478_1280.jpg',
+    img: p('photo-1621905252507-b35492cc74b4'),
     logoType: 'orange_bolt',
     isVerified: true,
-    industry: 'High Voltage Switchgear & Electrical Transformers',
+    industry: 'Consumer Electronics',
+    productFocus: 'electrical copper cable switchgear',
+    sampleProduct: 'HV Copper Power Cable & Switchgear Assemblies',
   },
   {
     id: 'ref-mfr-rheinland',
-    name: 'Rheinland Bio-Polymer Werk AG',
-    slug: 'rheinland-bio-polymer',
+    name: 'Düsseldorf Precision Hydraulic GmbH',
+    slug: 'dusseldorf-precision-hydraulic',
     country: 'Germany',
     flag: '🇩🇪',
-    img: 'https://cdn.pixabay.com/photo/2014/12/10/20/56/laboratory-563423_1280.jpg',
+    img: p('photo-1582719478250-c89cae4dc85b'),
     logoType: 'green_leaf',
     isVerified: true,
-    industry: 'Bio-Polymer Resins & Specialty Chemicals',
+    industry: 'Specialty Chemicals',
+    productFocus: 'specialty chemical polymer resin',
+    sampleProduct: 'Industrial Polymer Resin & Specialty Chemicals',
   },
   {
     id: 'ref-mfr-pacific',
@@ -119,32 +236,38 @@ const REFERENCE_SUPPLIERS: DisplaySupplier[] = [
     slug: 'pacific-northwest-timber',
     country: 'USA',
     flag: '🇺🇸',
-    img: 'https://cdn.pixabay.com/photo/2017/04/02/09/08/bulldozer-2195329_1280.jpg',
+    img: p('photo-1503387762-592deb58ef4e'),
     logoType: 'timber',
     isVerified: true,
-    industry: 'Sustainable Softwood & Industrial Pallets',
+    industry: 'Building Materials',
+    productFocus: 'timber softwood lumber pallets',
+    sampleProduct: 'Export-Grade Softwood Lumber & Pallets',
   },
   {
     id: 'ref-mfr-nippon',
-    name: 'Nippon Precision Optics K.K.',
-    slug: 'nippon-precision-optics',
+    name: 'Osaka Summit Optics Enterprises Ltd.',
+    slug: 'osaka-summit-optics',
     country: 'Japan',
     flag: '🇯🇵',
-    img: 'https://cdn.pixabay.com/photo/2017/12/28/22/03/lens-3046269_1280.jpg',
+    img: p('photo-1516035069371-29a1b244cc32'),
     logoType: 'red_sun',
     isVerified: true,
-    industry: 'Optical Sensors & Robotic Vision Systems',
+    industry: 'Consumer Electronics',
+    productFocus: 'optical lens precision camera sensor',
+    sampleProduct: 'OEM Precision Camera Lens & Optical Sensors',
   },
   {
     id: 'ref-mfr-emirates',
-    name: 'Emirates Petrochem & Polymers',
+    name: 'Emirates Petrochem & Polymers LLC',
     slug: 'emirates-petrochem-polymers',
     country: 'UAE',
     flag: '🇦🇪',
-    img: 'https://cdn.pixabay.com/photo/2017/10/04/21/01/turbine-engine-2817617_1280.jpg',
+    img: p('photo-1611273426858-450d8e3c9fce'),
     logoType: 'golden_flame',
     isVerified: true,
-    industry: 'Industrial Polyethylene & Refined Polymers',
+    industry: 'Plastics & Rubber',
+    productFocus: 'polyethylene plastic pellets resin',
+    sampleProduct: 'Virgin HDPE / LDPE Polymer Pellets (Bulk)',
   },
   {
     id: 'ref-mfr-hana',
@@ -152,21 +275,25 @@ const REFERENCE_SUPPLIERS: DisplaySupplier[] = [
     slug: 'hana-smart-energy-battery',
     country: 'South Korea',
     flag: '🇰🇷',
-    img: 'https://cdn.pixabay.com/photo/2020/10/03/09/05/solar-energy-5622969_1280.jpg',
+    img: p('photo-1613665813446-82a78c468a1d'),
     logoType: 'cyan_circuit',
     isVerified: true,
-    industry: 'Solid-State Battery Modules & Inverters',
+    industry: 'Consumer Electronics',
+    productFocus: 'solar panel battery module inverter',
+    sampleProduct: 'Li-ion Battery Module & Solar Inverter Kits',
   },
   {
     id: 'ref-mfr-zenith',
-    name: 'Zenith Robotics GmbH',
-    slug: 'zenith-robotics-gmbh',
-    country: 'Germany',
-    flag: '🇩🇪',
-    img: 'https://cdn.pixabay.com/photo/2016/09/12/07/48/mechanical-1663275_1280.jpg',
+    name: 'Suzhou Golden Laser Industries Inc.',
+    slug: 'suzhou-golden-laser',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1565043589221-1a6fd9ae45c7'),
     logoType: 'default',
     isVerified: true,
-    industry: 'Industrial Automation & CNC Machinery',
+    industry: 'Industrial Machinery',
+    productFocus: 'fiber laser sheet metal cutting',
+    sampleProduct: 'Fiber Laser Sheet Metal Cutting Machine 12kW',
   },
   {
     id: 'ref-mfr-agrogold',
@@ -174,34 +301,521 @@ const REFERENCE_SUPPLIERS: DisplaySupplier[] = [
     slug: 'agrogold-commodities-exports',
     country: 'India',
     flag: '🇮🇳',
-    img: 'https://cdn.pixabay.com/photo/2016/09/10/11/42/wheat-1659021_1280.jpg',
+    img: p('photo-1586201375761-83865001e31c'),
     logoType: 'default',
     isVerified: true,
-    industry: 'Organic Grains & Spice Processing',
+    industry: 'Agriculture & Food',
+    productFocus: 'organic wheat grain spice commodities',
+    sampleProduct: 'Bulk Organic Basmati Rice & Spice Lots',
   },
   {
     id: 'ref-mfr-silkweave',
-    name: 'SilkWoven Textile Mills Ltd',
-    slug: 'silk-woven-textile-mills',
+    name: 'Shaoxing SilkWoven Textile Mills Ltd',
+    slug: 'shaoxing-silkwoven-textiles',
     country: 'China',
     flag: '🇨🇳',
-    img: 'https://cdn.pixabay.com/photo/2019/03/25/04/43/weaving-4079366_1280.jpg',
+    img: p('photo-1558611848-73f7eb4001a1'),
     logoType: 'default',
     isVerified: true,
-    industry: 'Premium Silk & Cotton Textile Weaving',
+    industry: 'Textiles & Apparel',
+    productFocus: 'silk fabric cotton textile yarn',
+    sampleProduct: 'Mulberry Silk Fabric Rolls (OEM Dyeing)',
   },
   {
     id: 'ref-mfr-titansteel',
-    name: 'Titan Heavy Motors & Steel',
-    slug: 'titan-heavy-motors-steel',
+    name: 'Cleveland Titan Auto Castings Inc.',
+    slug: 'cleveland-titan-auto-castings',
     country: 'USA',
     flag: '🇺🇸',
-    img: 'https://cdn.pixabay.com/photo/2017/03/27/14/56/auto-2179220_1280.jpg',
+    img: p('photo-1486262715619-67b85e0b08d3'),
     logoType: 'default',
     isVerified: true,
-    industry: 'Automotive Castings & Heavy Steel Alloys',
+    industry: 'Auto Parts',
+    productFocus: 'automotive casting steel alloy parts',
+    sampleProduct: 'Automotive Transmission Forgings & Cast Parts',
+  },
+  {
+    id: 'ref-mfr-nordic',
+    name: 'Stuttgart Phoenix Bearings GmbH',
+    slug: 'stuttgart-phoenix-bearings',
+    country: 'Germany',
+    flag: '🇩🇪',
+    img: p('photo-1581092918056-0c4c3acd3789'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Industrial Machinery',
+    productFocus: 'ball bearing roller motion systems',
+    sampleProduct: 'Precision Ball Bearing Sets (ISO Grade)',
+  },
+  {
+    id: 'ref-mfr-gulfpipe',
+    name: 'Gulf Industrial Piping LLC',
+    slug: 'gulf-industrial-piping',
+    country: 'UAE',
+    flag: '🇦🇪',
+    img: p('photo-1504328345606-18bbc8c9d7d1'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Building Materials',
+    productFocus: 'HDPE PVC industrial pipe fittings',
+    sampleProduct: 'HDPE Pressure Pipe & PVC Fittings Bundle',
+  },
+  {
+    id: 'ref-mfr-osakacircuit',
+    name: 'Osaka MicroCircuit Co., Ltd.',
+    slug: 'osaka-microcircuit',
+    country: 'Japan',
+    flag: '🇯🇵',
+    img: p('photo-1518770660439-4636190af475'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Consumer Electronics',
+    productFocus: 'PCB printed circuit microelectronics',
+    sampleProduct: 'OEM Multilayer PCB Assembly (FR4 / HDI)',
+  },
+  {
+    id: 'ref-mfr-seoulwind',
+    name: 'Seoul Wind & Grid Systems Co.',
+    slug: 'seoul-wind-grid-systems',
+    country: 'South Korea',
+    flag: '🇰🇷',
+    img: p('photo-1509391366360-2e959784a276'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Consumer Electronics',
+    productFocus: 'solar inverter grid energy',
+    sampleProduct: 'Grid-Tied Solar Inverter 5kW–50kW',
+  },
+  {
+    id: 'ref-mfr-mumbaiwire',
+    name: 'Mumbai Copper Wire Works',
+    slug: 'mumbai-copper-wire-works',
+    country: 'India',
+    flag: '🇮🇳',
+    img: p('photo-1558618666-fcd25c85cd64'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Electronics & Electricals',
+    productFocus: 'copper wire power cable winding',
+    sampleProduct: 'Enameled Copper Winding Wire (Class H)',
+  },
+  {
+    id: 'ref-mfr-shenzhenpoly',
+    name: 'Shenzhen Polymer Pellets Ltd',
+    slug: 'shenzhen-polymer-pellets',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1600880292089-90a7e086ee0c'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Plastics & Rubber',
+    productFocus: 'recycled plastic polymer pellets',
+    sampleProduct: 'Recycled ABS / PP Polymer Pellets (Bulk)',
+  },
+  {
+    id: 'ref-mfr-detroitauto',
+    name: 'Detroit Forge & Castings Inc.',
+    slug: 'detroit-forge-castings',
+    country: 'USA',
+    flag: '🇺🇸',
+    img: p('photo-1492144534655-ae79c964c9d7'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Auto Parts',
+    productFocus: 'automotive forging casting metal',
+    sampleProduct: 'Drop-Forged Automotive Chassis Components',
+  },
+  {
+    id: 'ref-mfr-hamburglog',
+    name: 'Hamburg Bulk Logistics Packaging AG',
+    slug: 'hamburg-bulk-logistics',
+    country: 'Germany',
+    flag: '🇩🇪',
+    img: p('photo-1607166452427-7e4477079cb9'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Packaging',
+    productFocus: 'export packaging corrugated cartons',
+    sampleProduct: 'Export-Ready Corrugated Carton Kits',
+  },
+  {
+    id: 'ref-mfr-dubaiwater',
+    name: 'Dubai Desal Chem Partners',
+    slug: 'dubai-desal-chem-partners',
+    country: 'UAE',
+    flag: '🇦🇪',
+    img: p('photo-1532187863486-abf9dbad1b69'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Chemicals',
+    productFocus: 'water treatment industrial chemicals',
+    sampleProduct: 'Water Treatment Chemical Drum Kits',
+  },
+  {
+    id: 'ref-mfr-kyotofiber',
+    name: 'Kyoto Technical Fibers K.K.',
+    slug: 'kyoto-technical-fibers',
+    country: 'Japan',
+    flag: '🇯🇵',
+    img: p('photo-1620799140408-edc6dcb6d633'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Textiles',
+    productFocus: 'technical textile industrial fiber',
+    sampleProduct: 'High-Tenacity Technical Fiber Fabrics',
+  },
+  {
+    id: 'ref-mfr-busanport',
+    name: 'Wuxi Starlight Pumps Global Exports',
+    slug: 'wuxi-starlight-pumps',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1619642751034-765dfdf7c58e'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Industrial Machinery',
+    productFocus: 'industrial slurry pump hydraulic',
+    sampleProduct: 'High Pressure Industrial Slurry Pump',
+  },
+  {
+    id: 'ref-mfr-punecnc',
+    name: 'Pune Multi-Axis CNC Hub Pvt Ltd',
+    slug: 'pune-multi-axis-cnc-hub',
+    country: 'India',
+    flag: '🇮🇳',
+    img: p('photo-1581092162384-8987c1d64718'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Industrial Machinery',
+    productFocus: '5-axis CNC milling machine',
+    sampleProduct: 'Industrial Metal Lathe & CNC Turning Center',
+  },
+  {
+    id: 'ref-mfr-shenzhenelec',
+    name: 'Shenzhen Nova Consumer Electronics Co.',
+    slug: 'shenzhen-nova-consumer-electronics',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1581092160562-40aa08e78837'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Consumer Electronics',
+    productFocus: 'wireless earbuds power bank electronics OEM',
+    sampleProduct: 'OEM TWS Earbuds & 20000mAh Power Banks',
+  },
+  {
+    id: 'ref-mfr-guangzhouled',
+    name: 'Guangzhou Bright LED Lighting Factory',
+    slug: 'guangzhou-bright-led-lighting',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1550985543-f47df4b4c4e0'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Consumer Electronics',
+    productFocus: 'LED panel light strip lighting OEM',
+    sampleProduct: 'Commercial LED Panel Lights (OEM Bulk)',
+  },
+  {
+    id: 'ref-mfr-milanlaser',
+    name: 'Milan United Laser Precision Ltd.',
+    slug: 'milan-united-laser-precision',
+    country: 'Italy',
+    flag: '🇮🇹',
+    img: p('photo-1581094794329-c8112a89af12'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Industrial Machinery',
+    productFocus: 'CO2 laser acrylic engraver cutting',
+    sampleProduct: 'CO2 Laser Acrylic Engraver 150W',
+  },
+  {
+    id: 'ref-mfr-clevelandfood',
+    name: 'Cleveland Royal Food Technology Co.',
+    slug: 'cleveland-royal-food-tech',
+    country: 'USA',
+    flag: '🇺🇸',
+    img: p('photo-1596040033229-a9821ebd058d'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Food Machinery',
+    productFocus: 'commercial kitchen food processing line',
+    sampleProduct: 'Commercial Vegetable Washing & Peeling Line',
+  },
+  {
+    id: 'ref-mfr-osakainject',
+    name: 'Osaka Summit Injection Enterprises',
+    slug: 'osaka-summit-injection',
+    country: 'Japan',
+    flag: '🇯🇵',
+    img: p('photo-1565043666747-69f6646db940'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Industrial Machinery',
+    productFocus: 'PET preform injection molding machine',
+    sampleProduct: 'High Speed PET Preform Injection Molding Machine',
+  },
+  {
+    id: 'ref-mfr-ahmedabadpump',
+    name: 'Ahmedabad Nova Pumps Enterprises Ltd.',
+    slug: 'ahmedabad-nova-pumps',
+    country: 'India',
+    flag: '🇮🇳',
+    img: p('photo-1579482495398-a28a2a0ebae7'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Industrial Machinery',
+    productFocus: 'cast steel flanged gate valve pump',
+    sampleProduct: 'Cast Steel Flanged Gate Valve DN100',
+  },
+  {
+    id: 'ref-mfr-foshanfurn',
+    name: 'Foshan Modern Workspace Furniture Co.',
+    slug: 'foshan-modern-workspace-furniture',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1586023492125-27b2c045efd7'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Furniture',
+    productFocus: 'ergonomic office chair banquet furniture OEM',
+    sampleProduct: 'Ergonomic Mesh Office Chair Executive Series',
+  },
+  {
+    id: 'ref-mfr-morbitile',
+    name: 'Morbi Ceramic Tile Consortium',
+    slug: 'morbi-ceramic-tile-consortium',
+    country: 'India',
+    flag: '🇮🇳',
+    img: p('photo-1565193566173-7a0ee3dbe261'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Building Materials',
+    productFocus: 'ceramic porcelain floor tile export',
+    sampleProduct: 'Ceramic Floor Tiles 60×60 Matt Porcelain Bulk',
+  },
+  {
+    id: 'ref-mfr-shenzhenev',
+    name: 'Shenzhen VoltCharge Mobility Co.',
+    slug: 'shenzhen-voltcharge-mobility',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1593941707882-a5bba14938c7'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Automotive',
+    productFocus: 'EV DC fast charger CCS2 station',
+    sampleProduct: 'EV Fast DC Charger Station 60kW–120kW',
+  },
+  {
+    id: 'ref-mfr-vietnamcashew',
+    name: 'Binh Phuoc Cashew Export JSC',
+    slug: 'binh-phuoc-cashew-export',
+    country: 'Vietnam',
+    flag: '🇻🇳',
+    img: p('photo-1508747703725-719777637510'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Agriculture & Food',
+    productFocus: 'raw cashew nuts WW320 export',
+    sampleProduct: 'Raw Cashew Nuts WW320 Export Grade',
+  },
+  {
+    id: 'ref-mfr-keralanature',
+    name: 'Kerala Nature Extracts Pvt Ltd',
+    slug: 'kerala-nature-extracts',
+    country: 'India',
+    flag: '🇮🇳',
+    img: p('photo-1608571423902-eed4a5ad8108'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Beauty & Personal Care',
+    productFocus: 'organic essential oil cosmetic extract',
+    sampleProduct: 'Cold-Pressed Organic Essential Oil Collection',
+  },
+  {
+    id: 'ref-mfr-tianjinsteel',
+    name: 'Tianjin Structural Scaffold Steel Co.',
+    slug: 'tianjin-structural-scaffold-steel',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1504307651254-35680f356dfd'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Construction',
+    productFocus: 'galvanized scaffolding frame system',
+    sampleProduct: 'Industrial Metal Scaffolding Frame System',
+  },
+  {
+    id: 'ref-mfr-wuyikitchen',
+    name: 'Wuyi Kitchenware Export Group',
+    slug: 'wuyi-kitchenware-export',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1556910103-1c02745aae4d'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Home & Kitchen',
+    productFocus: 'cookware kitchen sink stainless OEM',
+    sampleProduct: 'Non-Stick Hard Anodized Cookware Set 10-Piece',
+  },
+  {
+    id: 'ref-mfr-yixinggarden',
+    name: 'Yixing Garden Ceramics Factory',
+    slug: 'yixing-garden-ceramics',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1416879595882-3373a0480b5b'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Home & Garden',
+    productFocus: 'ceramic planter garden tool kits',
+    sampleProduct: 'Outdoor Ceramic Planters & Garden Tool Kits',
+  },
+  {
+    id: 'ref-mfr-nordic',
+    name: 'Nordic Heavy Industrial AB',
+    slug: 'nordic-heavy-industrial',
+    country: 'Sweden',
+    flag: '🇸🇪',
+    img: p('photo-1513828583688-c52646db42da'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Heavy Machinery',
+    productFocus: 'excavator rock breaker attachment',
+    sampleProduct: 'Hydraulic Excavator Attachment Breaker Kit',
+  },
+  {
+    id: 'ref-mfr-wuxipack',
+    name: 'Wuxi Beauty Packaging Glass Co.',
+    slug: 'wuxi-beauty-packaging-glass',
+    country: 'China',
+    flag: '🇨🇳',
+    img: p('photo-1522335789203-aabd1fc54bc9'),
+    logoType: 'default',
+    isVerified: true,
+    industry: 'Packaging',
+    productFocus: 'cosmetic jar glass dropper bottles',
+    sampleProduct: 'Cosmetic Cream Jar PET / Glass Private Label',
   },
 ];
+
+/** True when URL is a reliable cover (Unsplash / known good CDN), not blocked Pixabay hotlinks */
+function isReliableCoverUrl(url?: string | null): boolean {
+  if (!url) return false;
+  if (url.includes('cdn.pixabay.com') || url.includes('pixabay.com/photo')) return false;
+  if (url.startsWith('data:image')) return false;
+  return url.startsWith('http');
+}
+
+/** Assign a unique cover image that has not already been used in the current pool */
+function assignUniqueCover(usedImages: Set<string>, preferred?: string | null, seedIndex = 0): string {
+  if (preferred && isReliableCoverUrl(preferred) && !usedImages.has(preferred)) {
+    usedImages.add(preferred);
+    return preferred;
+  }
+  const pool = DISTINCT_PIXABAY_COMPANY_IMAGES;
+  for (let i = 0; i < pool.length; i++) {
+    const candidate = pool[(seedIndex + i) % pool.length];
+    if (!usedImages.has(candidate)) {
+      usedImages.add(candidate);
+      return candidate;
+    }
+  }
+  // Exhausted pool — still return a deterministic image (rare with 36+ assets)
+  const fallback = pool[seedIndex % pool.length];
+  usedImages.add(fallback);
+  return fallback;
+}
+
+/**
+ * Resolve an Alibaba-benchmarked product/commodity photo for a supplier card.
+ * Prefer product imagery over generic facility landscapes.
+ */
+function resolveSupplierProductImage(
+  industry: string,
+  productFocus: string,
+  id: string,
+  usedImages: Set<string>
+): string {
+  const matched = matchProductImage({
+    id,
+    name: productFocus || industry,
+    category: industry,
+  });
+  const candidates = [
+    matched.primaryImage,
+    ...(matched.galleryImages || []),
+  ].filter((url) => url && isReliableCoverUrl(url) && !usedImages.has(url));
+
+  if (candidates[0]) {
+    usedImages.add(candidates[0]);
+    return candidates[0];
+  }
+  return assignUniqueCover(usedImages, null, usedImages.size);
+}
+
+/**
+ * Hydrate catalog: prefer curated Alibaba-style product photos first,
+ * fall back to keyword-matched commodity images only if needed for uniqueness.
+ */
+function hydrateSupplierCatalog(seed: number): DisplaySupplier[] {
+  const usedImages = new Set<string>();
+  const hydrated = REFERENCE_SUPPLIERS_RAW.map((raw, idx) => {
+    const industry = raw.industry || 'Industrial Manufacturing';
+    const productFocus = raw.productFocus || industry;
+    let img = raw.img;
+    if (!isReliableCoverUrl(img) || usedImages.has(img)) {
+      img = resolveSupplierProductImage(industry, productFocus, `${raw.id}-${seed}-${idx}`, usedImages);
+    } else {
+      usedImages.add(img);
+    }
+    return { ...raw, img } as DisplaySupplier;
+  });
+  return shuffleWithSeed(hydrated, seed);
+}
+
+const REFERENCE_SUPPLIERS: DisplaySupplier[] = hydrateSupplierCatalog(42);
+
+/** Pick up to `count` suppliers with unique images from a rotated pool */
+function pickUniqueBatch(pool: DisplaySupplier[], offset: number, count: number): DisplaySupplier[] {
+  if (pool.length === 0) return [];
+  const start = ((offset % pool.length) + pool.length) % pool.length;
+  const rotated = [...pool.slice(start), ...pool.slice(0, start)];
+  const seenImg = new Set<string>();
+  const seenId = new Set<string>();
+  const batch: DisplaySupplier[] = [];
+
+  for (const s of rotated) {
+    if (batch.length >= count) break;
+    if (seenId.has(s.id) || seenImg.has(s.img)) continue;
+    seenId.add(s.id);
+    seenImg.add(s.img);
+    batch.push(s);
+  }
+
+  // If country filter left too few unique images, fill without image collision when possible
+  if (batch.length < count) {
+    for (const s of REFERENCE_SUPPLIERS) {
+      if (batch.length >= count) break;
+      if (seenId.has(s.id) || seenImg.has(s.img)) continue;
+      seenId.add(s.id);
+      seenImg.add(s.img);
+      batch.push(s);
+    }
+  }
+
+  return batch;
+}
+
+function preloadImages(urls: string[]) {
+  if (typeof window === 'undefined') return;
+  urls.forEach((src) => {
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = optimizeCatalogUrl(src);
+  });
+}
 
 const COUNTRY_TABS = [
   { key: 'all', label: 'All Global', flag: '🌐' },
@@ -415,97 +1029,112 @@ function SupplierBrandLogo({ supplier }: { supplier: DisplaySupplier }) {
 
 export default function VerifiedSuppliersSection() {
   const navigate = useNavigate();
-  // Initialize with authentic reference suppliers immediately at 0ms (no loading delay)
-  const [suppliers, setSuppliers] = useState<DisplaySupplier[]>(() => REFERENCE_SUPPLIERS);
+  // Fresh unique catalog + offset every page open / refresh (no blank first paint)
+  const visitSeedRef = useRef<number>(createVisitSeed());
+  const [suppliers, setSuppliers] = useState<DisplaySupplier[]>(() =>
+    hydrateSupplierCatalog(visitSeedRef.current)
+  );
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 1-minute live auto-update rotation cycle
-  const [secondsLeft, setSecondsLeft] = useState(60);
-  const [rotationOffset, setRotationOffset] = useState(0);
+  // 30-second live auto-update rotation cycle (temporary simulation, production-ready)
+  const [secondsLeft, setSecondsLeft] = useState(ROTATION_SECONDS);
+  const [rotationOffset, setRotationOffset] = useState(
+    () => visitSeedRef.current % Math.max(1, REFERENCE_SUPPLIERS_RAW.length)
+  );
   const [isRotating, setIsRotating] = useState(false);
+  const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const advanceBatch = useCallback((step = DISPLAY_COUNT) => {
+    setIsRotating(true);
+    setRotationOffset((r) => r + step);
+    setSecondsLeft(ROTATION_SECONDS);
+    if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
+    rotateTimerRef.current = setTimeout(() => setIsRotating(false), 450);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setSecondsLeft(prev => {
+      setSecondsLeft((prev) => {
         if (prev <= 1) {
-          // Trigger 1-minute rotation to next batch of verified suppliers
-          setIsRotating(true);
-          setRotationOffset(r => r + 4);
-          setTimeout(() => setIsRotating(false), 600);
-          return 60;
+          // Defer batch advance so we don't update unrelated state inside this setter
+          queueMicrotask(() => advanceBatch(DISPLAY_COUNT));
+          return ROTATION_SECONDS;
         }
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      clearInterval(timer);
+      if (rotateTimerRef.current) clearTimeout(rotateTimerRef.current);
+    };
+  }, [advanceBatch]);
 
-  const handleManualRotate = () => {
-    setIsRotating(true);
-    setRotationOffset(r => r + 4);
-    setSecondsLeft(60);
-    setTimeout(() => setIsRotating(false), 600);
-  };
+  const handleManualRotate = () => advanceBatch(DISPLAY_COUNT);
 
-  // Load database suppliers and merge with authentic reference suppliers
+  // Load database suppliers and merge with visit-randomized simulation catalog
   const loadSuppliers = useCallback(async () => {
-    if (suppliers.length === 0) setLoading(true);
     setError(null);
     try {
       let dbCompanies: Company[] = [];
       try {
-        dbCompanies = await getCompanies({ verified: true, limit: 16 });
+        dbCompanies = await getCompanies({ verified: true, limit: 24 });
       } catch (err) {
-        console.warn('Could not fetch companies from DB, using reference catalog:', err);
+        console.warn('Could not fetch companies from DB, using simulation catalog:', err);
       }
 
+      const seed = visitSeedRef.current;
       const formatted: DisplaySupplier[] = [];
       const seenNames = new Set<string>();
+      const usedImages = new Set<string>();
 
-      // 1. Prioritize reference suppliers shown in mockup
-      REFERENCE_SUPPLIERS.forEach(ref => {
+      // 1. Visit-shuffled curated suppliers with Alibaba-benchmarked product photos
+      hydrateSupplierCatalog(seed).forEach((ref) => {
         if (!seenNames.has(ref.name.toLowerCase())) {
           seenNames.add(ref.name.toLowerCase());
+          usedImages.add(ref.img);
           formatted.push(ref);
         }
       });
 
-      // 2. Supplement with active verified DB companies
+      // 2. Supplement with verified DB companies — product-matched unique images
       if (Array.isArray(dbCompanies) && dbCompanies.length > 0) {
-        dbCompanies.forEach((c) => {
-          if (!seenNames.has(c.company_name.toLowerCase())) {
-            seenNames.add(c.company_name.toLowerCase());
-            const country = c.country || 'India';
-            // Ensure unique non-repeating Pixabay photo for every supplier
-            const assignedPixabayImg = (c.cover_url && !c.cover_url.includes('unsplash.com'))
-              ? c.cover_url
-              : (c.banner_url && !c.banner_url.includes('unsplash.com'))
-              ? c.banner_url
-              : DISTINCT_PIXABAY_COMPANY_IMAGES[(formatted.length) % DISTINCT_PIXABAY_COMPANY_IMAGES.length];
+        const shuffledDb = shuffleWithSeed(dbCompanies, seed ^ 0x9e3779b9);
+        shuffledDb.forEach((c, idx) => {
+          if (seenNames.has(c.company_name.toLowerCase())) return;
+          seenNames.add(c.company_name.toLowerCase());
+          const country = c.country || 'India';
+          const industry = c.business_type || 'Industrial Manufacturing';
+          const preferred =
+            (isReliableCoverUrl(c.cover_url) ? c.cover_url : null) ||
+            (isReliableCoverUrl(c.banner_url) ? c.banner_url : null);
 
-            formatted.push({
-              id: c.id,
-              name: c.company_name,
-              slug: c.slug,
-              country,
-              flag: COUNTRY_FLAGS[country] || '🌐',
-              img: assignedPixabayImg,
-              logoUrl: c.logo_url || undefined,
-              logoType: 'default',
-              isVerified: true,
-              industry: c.business_type || 'Industrial Manufacturing',
-            });
-          }
+          formatted.push({
+            id: c.id,
+            name: c.company_name,
+            slug: c.slug,
+            country,
+            flag: COUNTRY_FLAGS[country] || '🌐',
+            img: preferred && !usedImages.has(preferred)
+              ? (() => { usedImages.add(preferred); return preferred; })()
+              : resolveSupplierProductImage(industry, industry, `${c.id}-${seed}-${idx}`, usedImages),
+            logoUrl: c.logo_url || undefined,
+            logoType: 'default',
+            isVerified: true,
+            industry,
+            productFocus: industry,
+            sampleProduct: `${industry} · OEM / Wholesale Lot`,
+          });
         });
       }
 
-      setSuppliers(formatted);
+      setSuppliers(shuffleWithSeed(formatted, seed ^ 0x85ebca6b));
+      setRotationOffset(seed % Math.max(1, formatted.length));
     } catch (err) {
       console.error('Failed to load verified suppliers', err);
       setError('Unable to load verified suppliers.');
-      setSuppliers(REFERENCE_SUPPLIERS);
+      setSuppliers(hydrateSupplierCatalog(visitSeedRef.current));
     } finally {
       setLoading(false);
     }
@@ -515,22 +1144,22 @@ export default function VerifiedSuppliersSection() {
     loadSuppliers();
   }, [loadSuppliers]);
 
-  // Filter and rotate suppliers by country tab and 1-minute interval
+  // Filter by country, then rotate unique 8-card batches every 30s
   const displayedSuppliers = useMemo(() => {
     let pool = suppliers;
     if (selectedCountry !== 'all') {
       const filtered = suppliers.filter(
-        s => s.country.toLowerCase() === selectedCountry.toLowerCase()
+        (s) => s.country.toLowerCase() === selectedCountry.toLowerCase()
       );
       if (filtered.length >= 3) {
         pool = filtered;
       } else {
         const refMatch = REFERENCE_SUPPLIERS.filter(
-          s => s.country.toLowerCase() === selectedCountry.toLowerCase()
+          (s) => s.country.toLowerCase() === selectedCountry.toLowerCase()
         );
         const combined = [...filtered];
-        const seen = new Set(combined.map(s => s.name.toLowerCase()));
-        refMatch.forEach(r => {
+        const seen = new Set(combined.map((s) => s.name.toLowerCase()));
+        refMatch.forEach((r) => {
           if (!seen.has(r.name.toLowerCase())) {
             seen.add(r.name.toLowerCase());
             combined.push(r);
@@ -540,13 +1169,16 @@ export default function VerifiedSuppliersSection() {
       }
     }
 
-    if (pool.length <= 8) return pool;
-    const start = rotationOffset % pool.length;
-    const rotated = [...pool.slice(start), ...pool.slice(0, start)];
-    return rotated.slice(0, 8);
+    return pickUniqueBatch(pool, rotationOffset, DISPLAY_COUNT);
   }, [suppliers, selectedCountry, rotationOffset]);
 
-  // Handle View Products button click
+  // Preload current + next batch so first paint and 30s swap stay smooth
+  useEffect(() => {
+    const current = pickUniqueBatch(suppliers, rotationOffset, DISPLAY_COUNT);
+    const next = pickUniqueBatch(suppliers, rotationOffset + DISPLAY_COUNT, DISPLAY_COUNT);
+    preloadImages([...current, ...next].map((s) => s.img));
+  }, [suppliers, rotationOffset]);
+
   const handleViewProducts = (s: DisplaySupplier) => {
     if (s.slug) {
       navigate(`/manufacturers/${s.slug}`);
@@ -565,18 +1197,7 @@ export default function VerifiedSuppliersSection() {
         behavior: 'smooth',
       });
     }
-    // Also rotate batch so desktop PC grid cycles through suppliers seamlessly
-    if (direction === 'left') {
-      setIsRotating(true);
-      setRotationOffset(r => (r >= 4 ? r - 4 : Math.max(0, suppliers.length - 4)));
-      setSecondsLeft(60);
-      setTimeout(() => setIsRotating(false), 500);
-    } else {
-      setIsRotating(true);
-      setRotationOffset(r => r + 4);
-      setSecondsLeft(60);
-      setTimeout(() => setIsRotating(false), 500);
-    }
+    advanceBatch(direction === 'left' ? -DISPLAY_COUNT : DISPLAY_COUNT);
   };
 
   return (
@@ -597,17 +1218,17 @@ export default function VerifiedSuppliersSection() {
               </span>
             </h2>
 
-            {/* 1-Minute Live Rotation Countdown Badge */}
+            {/* 30-Second Live Simulation Countdown Badge */}
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF5A00]/10 border border-[#FF5A00]/30 text-[#FF5A00] text-[11px] font-bold shadow-sm">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF5A00] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FF5A00]"></span>
               </span>
-              <span>1-Min Auto-Update: {secondsLeft}s</span>
+              <span>30s Auto-Update: {secondsLeft}s</span>
               <button
                 type="button"
                 onClick={handleManualRotate}
-                title="Rotate now"
+                title="Show next unique suppliers"
                 className={`ml-1 text-[#FF5A00] hover:text-white transition-transform ${isRotating ? 'rotate-180 animate-spin' : 'hover:scale-110'}`}
               >
                 <RefreshCw className="w-3 h-3" />
@@ -644,11 +1265,11 @@ export default function VerifiedSuppliersSection() {
           </Link>
         </div>
 
-        {/* 1-Minute Live Progress Timeline Bar */}
-        <div className="w-full h-1 bg-slate-900 rounded-full overflow-hidden mb-3 sm:mb-3.5" title={`Auto-updates every 1 minute (${secondsLeft}s remaining)`}>
+        {/* 30-Second Live Progress Timeline Bar */}
+        <div className="w-full h-1 bg-slate-900 rounded-full overflow-hidden mb-3 sm:mb-3.5" title={`Auto-updates every ${ROTATION_SECONDS}s (${secondsLeft}s remaining)`}>
           <div
             className="h-full bg-gradient-to-r from-[#FF5A00] via-[#FF7A00] to-[#FF5A00] transition-all duration-1000 ease-linear rounded-full"
-            style={{ width: `${((60 - secondsLeft) / 60) * 100}%` }}
+            style={{ width: `${((ROTATION_SECONDS - secondsLeft) / ROTATION_SECONDS) * 100}%` }}
           />
         </div>
 
@@ -721,36 +1342,48 @@ export default function VerifiedSuppliersSection() {
             ref={supplierScrollRef}
             className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 overflow-x-auto md:overflow-visible pb-4 pt-1 scrollbar-none snap-x snap-mandatory overscroll-x-contain touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0"
           >
-            {displayedSuppliers.map((s) => (
+            {displayedSuppliers.map((s, idx) => (
               <div
-                key={s.id}
-                className="w-[275px] sm:w-[295px] md:w-auto shrink-0 md:shrink snap-start bg-[#0f172a] hover:bg-[#131d33] border border-slate-800/90 hover:border-[#FF5A00]/50 rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between group shadow-lg min-w-0"
+                key={`${s.id}-${s.img}`}
+                className={`w-[275px] sm:w-[295px] md:w-auto shrink-0 md:shrink snap-start bg-[#0f172a] hover:bg-[#131d33] border border-slate-800/90 hover:border-[#FF5A00]/50 rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between group shadow-lg min-w-0 ${
+                  isRotating ? 'opacity-70 scale-[0.99]' : 'opacity-100 scale-100'
+                }`}
               >
                 <div className="min-w-0 w-full">
-                  {/* Modern Factory Exterior Photography */}
+                  {/* Alibaba-style product catalog photo — optimized WebP, unique per card */}
                   <div
                     onClick={() => handleViewProducts(s)}
                     className="aspect-[16/10] w-full overflow-hidden bg-slate-900 relative cursor-pointer"
                   >
-                    <SafeImage
+                    <FastCatalogImage
                       src={s.img}
-                      alt={s.name}
-                      isRepresentativeImage={true}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                      sizes="(max-width: 768px) 275px, 325px"
+                      alt={s.sampleProduct || `${s.name} — ${s.industry || 'Verified Manufacturer'}`}
+                      priority={idx < 4}
+                      className="group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500 [&_img]:ease-out"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
-                    {/* Pixabay Live Sync Badge & Verified status */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                     <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-[#FF5A00]/40 text-[#FF5A00] text-[10px] font-bold shadow-sm">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping mr-0.5" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                       <span>Verified Manufacturer</span>
                     </div>
+                    {s.sampleProduct ? (
+                      <div className="absolute bottom-2 left-2.5 right-2.5 z-10 pointer-events-none">
+                        <span className="inline-block max-w-full truncate rounded-md bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold tracking-wide text-slate-100 border border-white/10">
+                          {s.sampleProduct}
+                        </span>
+                      </div>
+                    ) : s.industry ? (
+                      <div className="absolute bottom-2 left-2.5 right-2.5 z-10 pointer-events-none">
+                        <span className="inline-block max-w-full truncate rounded-md bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold tracking-wide text-slate-100 border border-white/10">
+                          {s.industry}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Card Body with Company Logo & Details */}
                   <div className="p-3.5 sm:p-4">
                     <div className="flex items-start gap-3">
-                      {/* Company Logo Square Box on Left */}
                       <div
                         onClick={() => handleViewProducts(s)}
                         className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow-sm border border-slate-200/50 cursor-pointer overflow-hidden"
@@ -758,33 +1391,38 @@ export default function VerifiedSuppliersSection() {
                         <SupplierBrandLogo supplier={s} />
                       </div>
 
-                      {/* Supplier Details Column */}
                       <div className="flex-1 min-w-0">
                         <h3
                           onClick={() => handleViewProducts(s)}
-                          className="font-bold text-white text-sm sm:text-[14px] leading-tight line-clamp-2 group-hover:text-[#FF5A00] transition-colors cursor-pointer min-h-[2.4rem] flex items-center"
+                          className="font-bold text-white text-sm sm:text-[14px] leading-snug line-clamp-2 group-hover:text-[#FF5A00] transition-colors cursor-pointer"
                           title={s.name}
                         >
                           {s.name}
                         </h3>
 
-                        {/* Country with Flag */}
-                        <div className="flex items-center gap-1.5 text-xs text-slate-300 mt-1">
-                          <span className="text-sm shrink-0">{s.flag}</span>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-300 mt-1.5">
+                          <span className="text-sm shrink-0 leading-none">{s.flag}</span>
                           <span className="truncate">{s.country}</span>
                         </div>
 
-                        {/* Verified Supplier Status */}
                         <div className="flex items-center gap-1 text-xs text-[#FF5A00] font-semibold mt-1">
                           <BadgeCheck className="w-3.5 h-3.5 text-[#FF5A00] shrink-0" />
                           <span className="truncate">Verified Supplier</span>
                         </div>
+
+                        {s.sampleProduct && (
+                          <p
+                            className="mt-1.5 text-[11px] text-slate-400 line-clamp-2 leading-snug"
+                            title={s.sampleProduct}
+                          >
+                            {s.sampleProduct}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Full-width "View Products >" Action Button */}
                 <div className="px-3.5 pb-3.5 sm:px-4 sm:pb-4 pt-0">
                   <button
                     type="button"

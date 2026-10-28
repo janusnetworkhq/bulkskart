@@ -1,7 +1,9 @@
 import * as Sentry from "@sentry/react";
 import { createRoot } from "react-dom/client";
+import { useEffect } from "react";
 import App from "./App.tsx";
 import { AppWrapper } from "./components/common/PageMeta.tsx";
+import { installChunkRecovery, isChunkLoadError, reloadForStaleChunk } from "./lib/chunkRecovery";
 import "./index.css";
 
 Sentry.init({
@@ -9,16 +11,17 @@ Sentry.init({
   environment: import.meta.env.MODE,
 });
 
-// Guard against unhandled promise rejections crashing headless inspection runners
-if (typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
-    // Log warning instead of letting it break headless inspection/test sessions
-    console.warn('[Inspection Guard] Handled async rejection:', event.reason);
-  });
-}
+installChunkRecovery();
 
 function RootErrorFallback({ error, resetError }: { error?: unknown; resetError?: () => void }) {
   const errorMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : undefined;
+  const chunkError = isChunkLoadError(error);
+
+  useEffect(() => {
+    if (chunkError) {
+      reloadForStaleChunk('error-boundary');
+    }
+  }, [chunkError]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
@@ -27,11 +30,15 @@ function RootErrorFallback({ error, resetError }: { error?: unknown; resetError?
           !
         </div>
         <div className="space-y-2">
-          <h1 className="text-xl font-bold tracking-tight">Something went wrong</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {chunkError ? 'Updating BulkSkart…' : 'Something went wrong'}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            We encountered an unexpected error while loading the page. Please try refreshing or return to the homepage.
+            {chunkError
+              ? 'A newer version was deployed. Reloading to get the latest files…'
+              : 'We encountered an unexpected error while loading the page. Please try refreshing or return to the homepage.'}
           </p>
-          {errorMessage && (
+          {errorMessage && !chunkError && (
             <p className="text-xs text-muted-foreground/80 font-mono bg-muted p-2 rounded text-left overflow-x-auto max-h-24">
               {errorMessage}
             </p>
@@ -42,7 +49,11 @@ function RootErrorFallback({ error, resetError }: { error?: unknown; resetError?
             type="button"
             onClick={() => {
               if (resetError) resetError();
-              window.location.reload();
+              if (chunkError) {
+                reloadForStaleChunk('manual-refresh');
+              } else {
+                window.location.reload();
+              }
             }}
             className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg text-sm hover:opacity-90 transition"
           >

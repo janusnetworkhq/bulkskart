@@ -167,7 +167,7 @@ export default function PostRequirementPage() {
         description: `${form.description.trim()}${form.specifications ? `\n\nSpecifications:\n${form.specifications.trim()}` : ''}`,
         specifications: form.specifications.trim() || null,
         category_id: form.categoryId,
-        quantity: parseFloat(form.quantity),
+        quantity: Math.max(1, Math.round(parseFloat(form.quantity) || 0)),
         quantity_unit: form.quantityUnit,
         destination_country: form.destinationCountry,
         destination_city: form.destinationCity || null,
@@ -184,13 +184,23 @@ export default function PostRequirementPage() {
 
       const { error: err, id } = await createRequirement(payload);
 
+      if (err || !id) {
+        setError(err || 'Failed to publish RFQ. Please try again.');
+        toast.error(err || 'Failed to publish RFQ. Please try again.');
+        return;
+      }
+
       // Clear draft on successful post
       localStorage.removeItem('bulkskart_rfq_draft');
 
-      const finalId = id || uniqueRfqNumber;
-      setCreatedRfqId(finalId);
+      setCreatedRfqId(id);
       setSuccess(true);
-      toast.success(`RFQ ${uniqueRfqNumber} published successfully! Verified manufacturers have been notified.`);
+      toast.success(`RFQ published successfully! Verified manufacturers will be notified.`);
+
+      // Fire matching in background — never block the buyer UI
+      void import('@/lib/api').then(({ triggerRfqMatching }) => {
+        triggerRfqMatching(id).catch(() => {});
+      });
 
       // Fire analytics
       const selectedCat = categories.find(c => c.id === form.categoryId);
@@ -201,10 +211,10 @@ export default function PostRequirementPage() {
         unit: form.quantityUnit
       });
     } catch (err: any) {
-      console.warn('Error saving RFQ to DB, using fallback local confirmation:', err);
-      setCreatedRfqId(uniqueRfqNumber);
-      setSuccess(true);
-      toast.success(`RFQ ${uniqueRfqNumber} published successfully!`);
+      console.warn('Error saving RFQ to DB:', err);
+      const message = err?.message || 'Failed to publish RFQ. Please try again.';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

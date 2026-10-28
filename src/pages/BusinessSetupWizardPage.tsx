@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/db/supabase';
@@ -15,6 +15,47 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import PageMeta from '@/components/common/PageMeta';
+import { cn } from '@/lib/utils';
+
+type FieldErrors = Record<string, string>;
+
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const IEC_REGEX = /^[0-9]{10}$/;
+
+function digitCount(value: string): number {
+  return (value.match(/\d/g) || []).length;
+}
+
+function isValidPhone(value: string): boolean {
+  const digits = digitCount(value);
+  // Allow local 10-digit or international E.164-style (7–15 digits with optional +)
+  if (digits < 10 || digits > 15) return false;
+  return /^[+]?[\d\s().-]{7,20}$/.test(value.trim());
+}
+
+function isValidUrl(value: string): boolean {
+  try {
+    const u = new URL(value.startsWith('http') ? value : `https://${value}`);
+    return Boolean(u.hostname.includes('.'));
+  } catch {
+    return false;
+  }
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p
+      data-field-error="true"
+      role="alert"
+      className="flex items-start gap-1 text-[11px] text-destructive font-medium leading-snug"
+    >
+      <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+      <span>{message}</span>
+    </p>
+  );
+}
 
 const ACCOUNT_TYPES = [
   { id: 'Manufacturer', label: 'Manufacturer / Factory', desc: 'Direct production facility with custom OEM/ODM bulk capabilities', role: 'supplier' },
@@ -105,6 +146,180 @@ export default function BusinessSetupWizardPage() {
   }>({});
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<'unverified' | 'pending' | 'verified' | 'rejected'>('unverified');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const clearFieldError = useCallback((key: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const scrollToFirstError = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('[data-field-error="true"]');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
+
+  /** Validate a wizard step and return field-level error messages */
+  const validateStep = useCallback((step: number): FieldErrors => {
+    const errors: FieldErrors = {};
+
+    if (step === 1) {
+      if (!accountType) {
+        errors.accountType = 'Please select an account type to continue';
+      }
+    }
+
+    if (step === 2) {
+      if (!personal.fullName.trim()) {
+        errors.fullName = 'This field is required';
+      } else if (personal.fullName.trim().length < 2) {
+        errors.fullName = 'Please enter a valid full name';
+      }
+
+      if (!personal.email.trim()) {
+        errors.email = 'This field is required';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email.trim())) {
+        errors.email = 'This email address looks invalid';
+      }
+
+      if (!personal.phone.trim()) {
+        errors.phone = 'This field is required';
+      } else if (!isValidPhone(personal.phone)) {
+        errors.phone = 'Enter a valid mobile number (10–15 digits)';
+      }
+
+      if (personal.whatsappNumber.trim() && !isValidPhone(personal.whatsappNumber)) {
+        errors.whatsappNumber = 'Enter a valid WhatsApp number or leave this blank';
+      }
+
+      if (!personal.country.trim()) {
+        errors.country = 'This field is required';
+      }
+
+      if (!personal.state.trim()) {
+        errors.state = 'This field is required';
+      } else if (personal.state.trim().length < 2) {
+        errors.state = 'Please enter a valid state / province';
+      }
+
+      if (!personal.city.trim()) {
+        errors.city = 'This field is required';
+      } else if (personal.city.trim().length < 2) {
+        errors.city = 'Please enter a valid city';
+      }
+    }
+
+    if (step === 3) {
+      if (!business.legalName.trim()) {
+        errors.legalName = 'This field is required';
+      } else if (business.legalName.trim().length < 2) {
+        errors.legalName = 'Please enter a valid legal business name';
+      }
+
+      if (business.gstNumber.trim()) {
+        const gst = business.gstNumber.trim().toUpperCase();
+        if (!GSTIN_REGEX.test(gst)) {
+          errors.gstNumber = 'Invalid GSTIN format (e.g. 27ABCDE1234F1Z5)';
+        }
+      }
+
+      if (business.panNumber.trim()) {
+        const pan = business.panNumber.trim().toUpperCase();
+        if (!PAN_REGEX.test(pan)) {
+          errors.panNumber = 'Invalid PAN format (e.g. ABCDE1234F)';
+        }
+      }
+
+      if (business.iecNumber.trim()) {
+        const iec = business.iecNumber.trim().replace(/\s/g, '');
+        if (!IEC_REGEX.test(iec)) {
+          errors.iecNumber = 'IEC must be exactly 10 digits';
+        }
+      }
+
+      if (business.yearEstablished.trim()) {
+        const year = parseInt(business.yearEstablished, 10);
+        const currentYear = new Date().getFullYear();
+        if (!Number.isFinite(year) || year < 1800 || year > currentYear) {
+          errors.yearEstablished = `Enter a valid year between 1800 and ${currentYear}`;
+        }
+      }
+
+      if (business.website.trim() && !isValidUrl(business.website.trim())) {
+        errors.website = 'Enter a valid website URL';
+      }
+
+      if (business.pincode.trim() && !/^[A-Za-z0-9\s-]{3,12}$/.test(business.pincode.trim())) {
+        errors.pincode = 'Enter a valid PIN / ZIP code';
+      }
+    }
+
+    if (step === 4) {
+      if (selectedCategories.length === 0) {
+        errors.categories = 'Select at least one product category';
+      }
+      if (productsSupplied.length === 0) {
+        errors.products = 'Add at least one product to continue';
+      }
+    }
+
+    return errors;
+  }, [accountType, personal, business, selectedCategories, productsSupplied]);
+
+  const handleNextStep = useCallback(() => {
+    const errors = validateStep(currentStep);
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      const count = Object.keys(errors).length;
+      toast.error(
+        count === 1
+          ? 'Please fix the highlighted field to continue'
+          : `Please fix ${count} required or invalid fields to continue`
+      );
+      scrollToFirstError();
+      return;
+    }
+
+    setFieldErrors({});
+    setCurrentStep((p) => Math.min(5, p + 1));
+  }, [currentStep, validateStep, scrollToFirstError]);
+
+  const handleBackStep = useCallback(() => {
+    setFieldErrors({});
+    setCurrentStep((p) => Math.max(1, p - 1));
+  }, []);
+
+  /** Allow revisiting past steps freely; validating when jumping ahead */
+  const handleStepJump = useCallback((targetStep: number) => {
+    if (targetStep === currentStep) return;
+
+    if (targetStep < currentStep) {
+      setFieldErrors({});
+      setCurrentStep(targetStep);
+      return;
+    }
+
+    // Validate every step between current and target (inclusive of current)
+    for (let step = currentStep; step < targetStep; step++) {
+      const errors = validateStep(step);
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
+        setCurrentStep(step);
+        toast.error('Please complete the required fields on this step first');
+        setTimeout(scrollToFirstError, 80);
+        return;
+      }
+    }
+
+    setFieldErrors({});
+    setCurrentStep(targetStep);
+  }, [currentStep, validateStep, scrollToFirstError]);
 
   // Load existing data for user
   useEffect(() => {
@@ -139,6 +354,8 @@ export default function BusinessSetupWizardPage() {
 
         if (activeProfile?.role === 'buyer') {
           setAccountType('Buyer');
+        } else if (activeProfile?.role === 'supplier' || user.user_metadata?.role === 'supplier') {
+          setAccountType((prev) => (prev === 'Buyer' ? 'Manufacturer' : prev));
         }
 
         // Direct query company owned specifically by this user to eliminate any cross-account leakage
@@ -410,20 +627,24 @@ export default function BusinessSetupWizardPage() {
   const handleCompleteProfile = async () => {
     if (!user) return;
 
-    // Validation
-    if (!personal.fullName.trim()) {
-      toast.error('Please enter your full name in Personal Details');
-      setCurrentStep(2);
-      return;
+    // Full multi-step validation before final submit
+    for (const step of [1, 2, 3, 4] as const) {
+      const errors = validateStep(step);
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors);
+        setCurrentStep(step);
+        toast.error('Please complete all required fields before launching your profile');
+        setTimeout(scrollToFirstError, 80);
+        return;
+      }
     }
-    if (!personal.phone.trim()) {
-      toast.error('Please enter a valid mobile contact number');
-      setCurrentStep(2);
-      return;
-    }
-    if (!business.legalName.trim()) {
-      toast.error('Please enter your legal business name');
-      setCurrentStep(3);
+
+    // Step 5 self-check (format-only leftovers already covered in steps 2–3)
+    const finalErrors = validateStep(5);
+    if (Object.keys(finalErrors).length > 0) {
+      setFieldErrors(finalErrors);
+      toast.error('Please fix the highlighted fields');
+      scrollToFirstError();
       return;
     }
 
@@ -435,6 +656,7 @@ export default function BusinessSetupWizardPage() {
       const finalStatus = hasUploadedDoc ? 'pending' : 'unverified';
 
       // 1. Update profiles table
+      const finalRole = isBuyer ? 'buyer' : 'supplier';
       await supabase.from('profiles').update({
         full_name: personal.fullName.trim(),
         phone: personal.phone.trim(),
@@ -442,10 +664,22 @@ export default function BusinessSetupWizardPage() {
         country: personal.country,
         state: personal.state,
         city: personal.city,
-        role: isBuyer ? 'buyer' : 'supplier',
+        role: finalRole,
         onboarding_completed: true,
         updated_at: new Date().toISOString(),
       }).eq('id', user.id);
+
+      // Keep auth metadata in sync so dashboard routing never drifts after setup
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            role: finalRole,
+            full_name: personal.fullName.trim(),
+          },
+        });
+      } catch (metaErr) {
+        console.warn('Auth metadata sync skipped:', metaErr);
+      }
 
       if (isBuyer) {
         const buyerPayload = {
@@ -543,6 +777,25 @@ export default function BusinessSetupWizardPage() {
       if (isBuyer) {
         navigate('/dashboard/buyer');
       } else {
+        // Auto-seed 5 sample buyer lead messages into manufacturer inbox
+        try {
+          const { data: co } = await supabase
+            .from('companies')
+            .select('id, company_name')
+            .eq('owner_id', user.id)
+            .maybeSingle();
+          if (co?.id) {
+            const { ensureManufacturerWelcomeLeads } = await import('@/lib/api');
+            const result = ensureManufacturerWelcomeLeads(co.id, co.company_name || business.legalName || 'Your Factory');
+            if (result.seeded) {
+              toast.success('5 sample buyer leads added to your Messages inbox', {
+                description: 'Open Messages to reply — this is a simulation for new manufacturers.',
+              });
+            }
+          }
+        } catch (seedErr) {
+          console.warn('Welcome lead seed skipped:', seedErr);
+        }
         navigate('/dashboard/supplier');
       }
     } catch (err: any) {
@@ -635,7 +888,7 @@ export default function BusinessSetupWizardPage() {
                 <button
                   key={s.num}
                   type="button"
-                  onClick={() => setCurrentStep(s.num)}
+                  onClick={() => handleStepJump(s.num)}
                   className={`flex flex-col items-center text-center p-1.5 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-primary/10 text-primary font-bold'
@@ -675,14 +928,20 @@ export default function BusinessSetupWizardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <FieldError message={fieldErrors.accountType} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {ACCOUNT_TYPES.map(type => (
                     <div
                       key={type.id}
-                      onClick={() => setAccountType(type.id)}
+                      onClick={() => {
+                        setAccountType(type.id);
+                        clearFieldError('accountType');
+                      }}
                       className={`cursor-pointer border rounded-xl p-4 transition-all ${
                         accountType === type.id
                           ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-sm'
+                          : fieldErrors.accountType
+                          ? 'border-destructive/50 bg-card hover:border-primary/40'
                           : 'border-border bg-card hover:border-primary/40 hover:bg-muted/30'
                       }`}
                     >
@@ -726,9 +985,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. Rajesh Sharma"
                       value={personal.fullName}
-                      onChange={e => setPersonal(p => ({ ...p, fullName: e.target.value }))}
-                      className="bg-background text-sm"
+                      aria-invalid={Boolean(fieldErrors.fullName)}
+                      onChange={e => {
+                        setPersonal(p => ({ ...p, fullName: e.target.value }));
+                        clearFieldError('fullName');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.fullName && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.fullName} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -738,9 +1002,11 @@ export default function BusinessSetupWizardPage() {
                       placeholder="name@company.com"
                       value={personal.email}
                       disabled
-                      className="bg-muted text-muted-foreground text-sm cursor-not-allowed"
+                      aria-invalid={Boolean(fieldErrors.email)}
+                      className={cn('bg-muted text-muted-foreground text-sm cursor-not-allowed', fieldErrors.email && 'border-destructive')}
                     />
                     <p className="text-[10px] text-muted-foreground">Linked to your authenticated login credentials</p>
+                    <FieldError message={fieldErrors.email} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -748,9 +1014,16 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. +91 98765 43210"
                       value={personal.phone}
-                      onChange={e => setPersonal(p => ({ ...p, phone: e.target.value }))}
-                      className="bg-background text-sm"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      aria-invalid={Boolean(fieldErrors.phone)}
+                      onChange={e => {
+                        setPersonal(p => ({ ...p, phone: e.target.value }));
+                        clearFieldError('phone');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.phone && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.phone} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -758,20 +1031,34 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. +91 98765 43210"
                       value={personal.whatsappNumber}
-                      onChange={e => setPersonal(p => ({ ...p, whatsappNumber: e.target.value }))}
-                      className="bg-background text-sm"
+                      inputMode="tel"
+                      aria-invalid={Boolean(fieldErrors.whatsappNumber)}
+                      onChange={e => {
+                        setPersonal(p => ({ ...p, whatsappNumber: e.target.value }));
+                        clearFieldError('whatsappNumber');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.whatsappNumber && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.whatsappNumber} />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Country <span className="text-destructive">*</span></Label>
                     <select
                       value={personal.country}
-                      onChange={e => setPersonal(p => ({ ...p, country: e.target.value }))}
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      aria-invalid={Boolean(fieldErrors.country)}
+                      onChange={e => {
+                        setPersonal(p => ({ ...p, country: e.target.value }));
+                        clearFieldError('country');
+                      }}
+                      className={cn(
+                        'w-full h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary',
+                        fieldErrors.country ? 'border-destructive focus:ring-destructive' : 'border-input'
+                      )}
                     >
                       {COUNTRIES_LIST.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
+                    <FieldError message={fieldErrors.country} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -779,9 +1066,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. Maharashtra, Gujarat, Delhi"
                       value={personal.state}
-                      onChange={e => setPersonal(p => ({ ...p, state: e.target.value }))}
-                      className="bg-background text-sm"
+                      aria-invalid={Boolean(fieldErrors.state)}
+                      onChange={e => {
+                        setPersonal(p => ({ ...p, state: e.target.value }));
+                        clearFieldError('state');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.state && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.state} />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -789,9 +1081,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. Mumbai, Ahmedabad, Surat, New Delhi"
                       value={personal.city}
-                      onChange={e => setPersonal(p => ({ ...p, city: e.target.value }))}
-                      className="bg-background text-sm"
+                      aria-invalid={Boolean(fieldErrors.city)}
+                      onChange={e => {
+                        setPersonal(p => ({ ...p, city: e.target.value }));
+                        clearFieldError('city');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.city && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.city} />
                   </div>
                 </div>
               </CardContent>
@@ -817,9 +1114,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. Apex Precision Forgings Pvt Ltd"
                       value={business.legalName}
-                      onChange={e => setBusiness(b => ({ ...b, legalName: e.target.value }))}
-                      className="bg-background text-sm"
+                      aria-invalid={Boolean(fieldErrors.legalName)}
+                      onChange={e => {
+                        setBusiness(b => ({ ...b, legalName: e.target.value }));
+                        clearFieldError('legalName');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.legalName && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.legalName} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -847,9 +1149,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. 27ABCDE1234F1Z5"
                       value={business.gstNumber}
-                      onChange={e => setBusiness(b => ({ ...b, gstNumber: e.target.value.toUpperCase() }))}
-                      className="bg-background text-sm font-mono"
+                      aria-invalid={Boolean(fieldErrors.gstNumber)}
+                      onChange={e => {
+                        setBusiness(b => ({ ...b, gstNumber: e.target.value.toUpperCase() }));
+                        clearFieldError('gstNumber');
+                      }}
+                      className={cn('bg-background text-sm font-mono', fieldErrors.gstNumber && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.gstNumber} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -857,9 +1164,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. ABCDE1234F"
                       value={business.panNumber}
-                      onChange={e => setBusiness(b => ({ ...b, panNumber: e.target.value.toUpperCase() }))}
-                      className="bg-background text-sm font-mono"
+                      aria-invalid={Boolean(fieldErrors.panNumber)}
+                      onChange={e => {
+                        setBusiness(b => ({ ...b, panNumber: e.target.value.toUpperCase() }));
+                        clearFieldError('panNumber');
+                      }}
+                      className={cn('bg-background text-sm font-mono', fieldErrors.panNumber && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.panNumber} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -867,9 +1179,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="e.g. 0308994411 (10 Digits)"
                       value={business.iecNumber}
-                      onChange={e => setBusiness(b => ({ ...b, iecNumber: e.target.value }))}
-                      className="bg-background text-sm font-mono"
+                      aria-invalid={Boolean(fieldErrors.iecNumber)}
+                      onChange={e => {
+                        setBusiness(b => ({ ...b, iecNumber: e.target.value }));
+                        clearFieldError('iecNumber');
+                      }}
+                      className={cn('bg-background text-sm font-mono', fieldErrors.iecNumber && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.iecNumber} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -878,9 +1195,14 @@ export default function BusinessSetupWizardPage() {
                       type="number"
                       placeholder="e.g. 2012"
                       value={business.yearEstablished}
-                      onChange={e => setBusiness(b => ({ ...b, yearEstablished: e.target.value }))}
-                      className="bg-background text-sm"
+                      aria-invalid={Boolean(fieldErrors.yearEstablished)}
+                      onChange={e => {
+                        setBusiness(b => ({ ...b, yearEstablished: e.target.value }));
+                        clearFieldError('yearEstablished');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.yearEstablished && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.yearEstablished} />
                   </div>
 
                   <div className="space-y-1.5">
@@ -888,9 +1210,14 @@ export default function BusinessSetupWizardPage() {
                     <Input
                       placeholder="https://www.yourcompany.com"
                       value={business.website}
-                      onChange={e => setBusiness(b => ({ ...b, website: e.target.value }))}
-                      className="bg-background text-sm"
+                      aria-invalid={Boolean(fieldErrors.website)}
+                      onChange={e => {
+                        setBusiness(b => ({ ...b, website: e.target.value }));
+                        clearFieldError('website');
+                      }}
+                      className={cn('bg-background text-sm', fieldErrors.website && 'border-destructive focus-visible:ring-destructive')}
                     />
+                    <FieldError message={fieldErrors.website} />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -933,8 +1260,15 @@ export default function BusinessSetupWizardPage() {
               <CardContent className="space-y-5">
                 {/* Product Categories */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Primary Product Categories (Select applicable)</Label>
-                  <div className="flex flex-wrap gap-2">
+                  <Label className="text-xs font-semibold">
+                    Primary Product Categories (Select applicable) <span className="text-destructive">*</span>
+                  </Label>
+                  <div
+                    className={cn(
+                      'flex flex-wrap gap-2 rounded-xl p-2 -m-2',
+                      fieldErrors.categories && 'ring-1 ring-destructive/60 bg-destructive/5'
+                    )}
+                  >
                     {PRODUCT_CATEGORIES.map(cat => {
                       const isSelected = selectedCategories.includes(cat);
                       return (
@@ -947,6 +1281,7 @@ export default function BusinessSetupWizardPage() {
                             } else {
                               setSelectedCategories(p => [...p, cat]);
                             }
+                            clearFieldError('categories');
                           }}
                           className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                             isSelected
@@ -959,25 +1294,41 @@ export default function BusinessSetupWizardPage() {
                       );
                     })}
                   </div>
+                  <FieldError message={fieldErrors.categories} />
                 </div>
 
                 {/* Specific Products Supplied Tag Input */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Products Manufactured or Procured (Press Enter to add)</Label>
+                  <Label className="text-xs font-semibold">
+                    Products Manufactured or Procured (Press Enter to add) <span className="text-destructive">*</span>
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="e.g. Stainless Steel Valves, Hydraulic Pumps, Cotton Yarn"
                       value={productInput}
-                      onChange={e => setProductInput(e.target.value)}
+                      aria-invalid={Boolean(fieldErrors.products)}
+                      onChange={e => {
+                        setProductInput(e.target.value);
+                        clearFieldError('products');
+                      }}
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           handleAddProduct();
+                          clearFieldError('products');
                         }
                       }}
-                      className="bg-background text-sm"
+                      className={cn('bg-background text-sm', fieldErrors.products && 'border-destructive focus-visible:ring-destructive')}
                     />
-                    <Button type="button" size="sm" onClick={handleAddProduct} variant="secondary">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        handleAddProduct();
+                        clearFieldError('products');
+                      }}
+                      variant="secondary"
+                    >
                       Add
                     </Button>
                   </div>
@@ -994,6 +1345,7 @@ export default function BusinessSetupWizardPage() {
                       <p className="text-xs text-muted-foreground italic">No products added yet. Add at least 1-2 product types.</p>
                     )}
                   </div>
+                  <FieldError message={fieldErrors.products} />
                 </div>
 
                 {/* MOQ & Capacity */}
@@ -1300,7 +1652,7 @@ export default function BusinessSetupWizardPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setCurrentStep(p => p - 1)}
+                  onClick={handleBackStep}
                   disabled={saving || completing}
                   className="w-full sm:w-auto text-xs gap-1.5"
                 >
@@ -1324,7 +1676,7 @@ export default function BusinessSetupWizardPage() {
               {currentStep < 5 ? (
                 <Button
                   type="button"
-                  onClick={() => setCurrentStep(p => p + 1)}
+                  onClick={handleNextStep}
                   disabled={saving || completing}
                   className="flex-1 sm:flex-initial bg-primary text-white hover:bg-primary/90 text-xs gap-1.5"
                 >

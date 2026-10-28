@@ -88,7 +88,7 @@ const CATEGORIES: CategoryItem[] = [
 
 export default function CategoriesAndStatsSection() {
   return (
-    <section className="relative z-20 max-w-7xl mx-auto w-full px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 mb-6 sm:mb-10 overflow-hidden rounded-3xl scroll-mt-20">
+    <section className="relative z-20 max-w-[1400px] mx-auto w-full px-4 sm:px-5 md:px-6 pt-3 sm:pt-4 mb-6 sm:mb-10 overflow-hidden rounded-3xl scroll-mt-20">
       
       {/* ── Ambient Industrial Port Background (Top-Right) matching Image 2 ── */}
       <div className="absolute right-0 top-0 w-full sm:w-[58%] md:w-[48%] h-[200px] sm:h-[260px] pointer-events-none select-none overflow-hidden z-0 opacity-80 sm:opacity-90">

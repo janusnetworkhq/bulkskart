@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layouts/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getCompanyBySlug, getProducts, getCompanyCertifications, getCompanyReviews } from '@/lib/api';
+import { supabase } from '@/db/supabase';
+import { copyText, supplierPublicUrl, telLink, waLink } from '@/lib/supplierPublicProfile';
 import type { Company, Product, CompanyCertification, CompanyReview } from '@/types/types';
 import { useAuth } from '@/contexts/AuthContext';
 import SafeImage from '@/components/common/SafeImage';
@@ -12,19 +14,15 @@ import { resolveCompanyBranding } from '@/lib/contentImages';
 import {
   ShieldCheck, MapPin, ArrowLeft, Globe, Calendar, Users,
   Star, Package, Award, CheckCircle, MessageSquare, FileText,
-  Building2, Mail, Lock, LogIn, Sparkles, Camera, Flag,
+  Building2, Mail, Phone, Flag, Copy, Check, Camera, Sparkles,
 } from 'lucide-react';
 import PageMeta from '@/components/common/PageMeta';
-import MaskedPhone from '@/components/common/MaskedPhone';
-import { getCompanyDisplayPhone } from '@/lib/countryPhoneCodes';
-import LiveChatModal from '@/components/common/LiveChatModal';
 import SupplierDirectChatModal from '@/components/common/SupplierDirectChatModal';
 import Breadcrumbs from '@/components/common/Breadcrumbs';
 import CompanyReviewsAndRatingSection from '@/components/common/CompanyReviewsAndRatingSection';
 import ReportItemModal from '@/components/common/ReportItemModal';
 
 const FALLBACK_BANNER = 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1920&q=80';
-const PRODUCT_FALLBACK = 'https://cdn.pixabay.com/photo/2016/09/12/07/48/mechanical-1663275_1280.jpg';
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
   return (
@@ -66,6 +64,15 @@ export default function CompanyProfilePage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [directChatProduct, setDirectChatProduct] = useState<Product | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const publicLinkRef = useRef<HTMLInputElement>(null);
+  const [owner, setOwner] = useState<{
+    full_name: string | null;
+    phone: string | null;
+    email: string | null;
+    whatsapp_number: string | null;
+    avatar_url: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -80,6 +87,14 @@ export default function CompanyProfilePage() {
         setProducts(prods);
         setCerts(certsData.filter(c => c.is_verified));
         setReviews(reviewsData);
+        if (co.owner_id) {
+          const { data: ownerRow } = await supabase
+            .from('profiles')
+            .select('full_name, phone, email, whatsapp_number, avatar_url')
+            .eq('id', co.owner_id)
+            .maybeSingle();
+          setOwner(ownerRow);
+        }
       }
       setLoading(false);
     });
@@ -118,8 +133,21 @@ export default function CompanyProfilePage() {
     ? new Date().getFullYear() - company.year_established
     : company.years_in_business;
 
-  const maskContact = (val: string, chars = 4) =>
-    val.length > chars ? val.slice(0, chars) + '****' : '****';
+  const companyRecord = company as Company & { whatsapp_number?: string | null };
+  const phone = owner?.phone?.trim() || '';
+  const whatsapp = companyRecord.whatsapp_number?.trim() || owner?.whatsapp_number?.trim() || phone;
+  const email = owner?.email?.trim() || '';
+  const logoSrc = company.logo_url || owner?.avatar_url || resolveCompanyBranding({ company_name: company.company_name, industry: company.business_type || undefined }).logo;
+
+  const publicUrl = supplierPublicUrl(company.slug);
+  const copyProfileLink = async () => {
+    publicLinkRef.current?.focus();
+    publicLinkRef.current?.select();
+    const ok = await copyText(publicUrl);
+    if (!ok) return;
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 1800);
+  };
 
   // Comprehensive SEO Metadata & Rich JSON-LD Schemas
   const companyTitle = `${company.company_name} — Verified Global ${company.business_type || 'Manufacturer'} & Wholesale Supplier | BulkSkart`;
@@ -222,7 +250,7 @@ export default function CompanyProfilePage() {
           { name: company.company_name, item: companyCanonical },
         ]}
       />
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-6">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-6 pt-6 pb-24 md:pb-6">
 
         {/* Visual Breadcrumb Trail */}
         <Breadcrumbs
@@ -259,7 +287,7 @@ export default function CompanyProfilePage() {
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-card border-2 border-border/80 flex items-center justify-center overflow-hidden -mt-8 md:-mt-10 shrink-0 shadow-lg relative z-10 p-1">
                   <SafeImage
-                    src={company.logo_url || resolveCompanyBranding({ company_name: company.company_name, industry: company.business_type || undefined }).logo}
+                    src={logoSrc}
                     alt={company.company_name}
                     type="company"
                     className="w-full h-full object-contain rounded-lg"
@@ -277,6 +305,7 @@ export default function CompanyProfilePage() {
                       <Badge variant="outline" className="text-xs border-border text-muted-foreground">{company.business_type}</Badge>
                     )}
                   </div>
+                  {owner?.full_name && <p className="text-xs text-muted-foreground mt-0.5">{owner.full_name}</p>}
                   {company.tagline && <p className="text-sm text-muted-foreground mt-0.5 italic line-clamp-2">{company.tagline}</p>}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1.5 flex-wrap">
                     {company.city && (
@@ -315,6 +344,14 @@ export default function CompanyProfilePage() {
                     </Button>
                   </a>
                 )}
+                <button
+                  type="button"
+                  onClick={copyProfileLink}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[#FF5A00]/40 bg-[#FF5A00]/10 px-3 text-xs font-bold text-[#FF5A00]"
+                >
+                  {linkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {linkCopied ? 'Link copied' : 'Copy link'}
+                </button>
                 <Button
                   size="sm"
                   onClick={() => {
@@ -333,6 +370,26 @@ export default function CompanyProfilePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mb-6 flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
+          <p className="shrink-0 text-xs font-bold text-foreground">Public profile</p>
+          <input
+            ref={publicLinkRef}
+            readOnly
+            value={publicUrl}
+            aria-label="Public profile link"
+            onFocus={event => event.currentTarget.select()}
+            className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+          />
+          <button
+            type="button"
+            onClick={copyProfileLink}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#FF5A00] px-3 text-xs font-bold text-white"
+          >
+            {linkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {linkCopied ? 'Copied' : 'Copy'}
+          </button>
         </div>
 
         {/* ── Quick Stats ── */}
@@ -433,10 +490,10 @@ export default function CompanyProfilePage() {
                     No products listed yet.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                     {products.map(p => (
                       <div key={p.id} className="bg-card border border-border rounded-xl overflow-hidden card-hover flex flex-col h-full">
-                        <Link to={`/products/${p.slug}`} className="aspect-[16/9] overflow-hidden bg-muted relative block">
+                        <Link to={`/products/${p.slug}`} className="aspect-square overflow-hidden bg-muted relative block">
                           <SafeImage
                             src={p.images?.[0]}
                             alt={p.name}
@@ -564,13 +621,13 @@ export default function CompanyProfilePage() {
                 {company.gst_number && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">GST</span>
-                    <span className="text-foreground font-medium font-mono">{maskContact(company.gst_number, 6)}</span>
+                    <span className="text-foreground font-medium font-mono">{company.gst_number}</span>
                   </div>
                 )}
                 {company.iec_number && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">IEC</span>
-                    <span className="text-foreground font-medium font-mono">{maskContact(company.iec_number, 4)}</span>
+                    <span className="text-foreground font-medium font-mono">{company.iec_number}</span>
                   </div>
                 )}
                 {(company.annual_turnover_range ?? company.annual_turnover) && (
@@ -585,26 +642,34 @@ export default function CompanyProfilePage() {
             {/* Contact */}
             <div className="bg-card border border-border rounded-xl p-3 md:p-4">
               <h3 className="text-sm font-semibold text-foreground mb-3">Contact</h3>
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-2 text-xs">
-                  <MaskedPhone
-                    phone={getCompanyDisplayPhone(company)}
-                    country={company.country}
-                    verified={company.verification_status === 'verified'}
-                    showIcon
-                    className="w-full"
-                  />
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  {user ? (
-                    <span className="text-foreground break-all">{company.slug}@example.com</span>
-                  ) : (
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Sign in to view
-                    </span>
-                  )}
-                </div>
+              <div className="space-y-2">
+                {phone ? (
+                  <a href={telLink(phone)} className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-foreground">
+                    <Phone className="w-4 h-4 text-[#FF5A00] shrink-0" />
+                    <span className="truncate">{phone}</span>
+                  </a>
+                ) : null}
+                {whatsapp ? (
+                  <a href={waLink(whatsapp)} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    <MessageSquare className="w-4 h-4 shrink-0" />
+                    <span className="truncate">WhatsApp {whatsapp}</span>
+                  </a>
+                ) : null}
+                {email ? (
+                  <a href={`mailto:${email}`} className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm font-semibold text-foreground">
+                    <Mail className="w-4 h-4 text-[#FF5A00] shrink-0" />
+                    <span className="truncate">{email}</span>
+                  </a>
+                ) : null}
+                {(company.address || company.city) && (
+                  <p className="flex items-start gap-2 px-1 text-xs text-muted-foreground">
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{[company.address, company.city, company.state, company.country, company.pincode].filter(Boolean).join(', ')}</span>
+                  </p>
+                )}
+                {!phone && !whatsapp && !email && (
+                  <p className="text-xs text-muted-foreground">This supplier has not added a public phone or email yet.</p>
+                )}
               </div>
 
               {/* Fast Direct Chat CTA */}

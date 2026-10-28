@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Search, ShieldCheck, ArrowRight, Package, Users, Globe, Flame,
-  CheckCircle2, Sparkles, Building2, Gavel, FileText, ChevronRight
+  CheckCircle2, Sparkles, Building2, Gavel, FileText, ChevronRight, Truck, Calculator
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -101,8 +101,25 @@ export default function HeroSection3D({ onSearch }: HeroSection3DProps) {
 
             {/* Concise Subtitle */}
             <p className="text-xs sm:text-sm md:text-base text-slate-300 max-w-xl font-normal leading-relaxed text-pretty">
-              Connect with verified manufacturers, suppliers and bulk buyers worldwide.
+              Connect with verified manufacturers, suppliers and bulk buyers worldwide. Delivery is free on every order.
             </p>
+
+            <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+              <a
+                href="#order-benefits"
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20"
+              >
+                <Truck className="h-3 w-3" />
+                Free delivery on all orders
+              </a>
+              <a
+                href="#order-benefits"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#FF5A00]/40 bg-[#FF5A00]/10 px-2.5 py-1 text-[11px] font-bold text-[#FF5A00] hover:bg-[#FF5A00]/20"
+              >
+                <Calculator className="h-3 w-3" />
+                Order loan calculator
+              </a>
+            </div>
 
             {/* Primary Action Buttons */}
             <div className="flex items-center gap-2 pt-1 flex-wrap">

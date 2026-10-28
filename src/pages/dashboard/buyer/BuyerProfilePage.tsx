@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import PageMeta from '@/components/common/PageMeta';
 import { Link } from 'react-router-dom';
+import { buyerPublicUrl, copyText } from '@/lib/supplierPublicProfile';
 import SingleImageUploader from '@/components/common/SingleImageUploader';
 
 const BUSINESS_TYPES = [
@@ -68,6 +69,7 @@ export default function BuyerProfilePage() {
   });
 
   const [kycStatus, setKycStatus] = useState<'unverified' | 'pending' | 'verified' | 'rejected'>('unverified');
+  const [publicSlug, setPublicSlug] = useState('');
 
   // Password state
   const [newPassword, setNewPassword] = useState('');
@@ -110,10 +112,11 @@ export default function BuyerProfilePage() {
             city: buyerData?.city || '',
             state: buyerData?.state || '',
             country: buyerData?.country || 'India',
-            preferredCategories: Array.isArray(buyerData?.preferred_categories)
-              ? buyerData.preferred_categories.join(', ')
+            preferredCategories: Array.isArray(buyerData?.product_categories)
+              ? buyerData.product_categories.join(', ')
               : '',
           });
+          setPublicSlug(buyerData?.public_slug || '');
 
           if (buyerData?.verification_status) {
             setKycStatus(buyerData.verification_status);
@@ -181,7 +184,7 @@ export default function BuyerProfilePage() {
         .from('buyer_profiles')
         .upsert({
           user_id: user.id,
-          company_name: formData.companyName,
+          company_name: formData.companyName.trim() || formData.fullName.trim() || 'Buyer',
           business_type: formData.businessType,
           gst_number: formData.gstNumber,
           pan_number: formData.panNumber,
@@ -193,11 +196,18 @@ export default function BuyerProfilePage() {
           country: formData.country,
           logo_url: formData.logoUrl || null,
           banner_url: formData.bannerUrl || null,
-          preferred_categories: preferredArr,
+          product_categories: preferredArr,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
 
       if (buyerErr) throw buyerErr;
+
+      const { data: saved } = await supabase
+        .from('buyer_profiles')
+        .select('public_slug')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (saved?.public_slug) setPublicSlug(saved.public_slug);
 
       await refreshProfile();
       toast.success('Profile saved successfully!');
@@ -288,6 +298,35 @@ export default function BuyerProfilePage() {
             </Link>
           </div>
         </div>
+
+        {publicSlug && (
+          <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
+            <p className="shrink-0 text-xs font-bold text-foreground">Public profile</p>
+            <input
+              readOnly
+              value={buyerPublicUrl(publicSlug)}
+              aria-label="Public buyer profile link"
+              onFocus={event => event.currentTarget.select()}
+              className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await copyText(buyerPublicUrl(publicSlug));
+                  if (ok) toast.success('Public profile link copied');
+                  else toast.error('Select the link and copy it');
+                }}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-[#FF5A00] px-3 text-xs font-bold text-white"
+              >
+                Copy
+              </button>
+              <Link to={`/buyers/${publicSlug}`} className="inline-flex h-10 items-center justify-center rounded-lg border border-border px-3 text-xs font-bold text-foreground">
+                View
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSaveProfile} className="space-y-6">

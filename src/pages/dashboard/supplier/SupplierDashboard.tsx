@@ -4,7 +4,8 @@ import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProducts, getRequirements, getMyQuotations } from '@/lib/api';
+import { getProducts, getRequirements, getMyQuotations, ensureManufacturerWelcomeLeads } from '@/lib/api';
+import { toast } from 'sonner';
 import { supabase } from '@/db/supabase';
 import { Package, FileText, TrendingUp, Plus, ArrowRight, Shield, CreditCard, AlertCircle, BarChart3, Bell, ShieldCheck, CheckCircle2, MessageSquare, Clock, Wallet, AlertTriangle, RefreshCw, Sparkles, Building2 } from 'lucide-react';
 import PageMeta from '@/components/common/PageMeta';
@@ -47,6 +48,21 @@ export default function SupplierDashboard() {
 
   useEffect(() => {
     if (!user || !company) { setLoading(false); return; }
+    let cancelled = false;
+
+    // Auto-deliver 5 sample buyer leads into Messages (one-time per company)
+    try {
+      const { seeded } = ensureManufacturerWelcomeLeads(company.id, company.company_name || 'Your Factory');
+      if (seeded) {
+        toast.success('5 sample buyer leads are in your Messages inbox', {
+          description: 'Open Messages → Inquiries to reply.',
+        });
+      }
+    } catch {
+      /* ignore seed errors */
+    }
+
+    // Fast path: lightweight count queries only — paint the dashboard ASAP
     Promise.all([
       supabase.from('products').select('id', { count: 'exact', head: true }).eq('company_id', company.id),
       supabase.from('quotations').select('id', { count: 'exact', head: true }).eq('supplier_company_id', company.id).eq('is_draft', false),
@@ -56,19 +72,14 @@ export default function SupplierDashboard() {
       supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
       supabase.from('disputes').select('id', { count: 'exact', head: true }).eq('raised_by', user.id).eq('status', 'open'),
       supabase.from('companies').select('response_rate,avg_response_hours,total_revenue,wallet_balance,withdrawable_balance').eq('id', company.id).maybeSingle(),
-      getProducts({ companyId: company.id }),
-      getRequirements({ status: 'active' }),
-    ]).then(([prodRes, quotRes, subRes, activeOrdRes, compOrdRes, notifRes, dispRes, companyRes, supplierProds, activeReqs]) => {
+    ]).then(([prodRes, quotRes, subRes, activeOrdRes, compOrdRes, notifRes, dispRes, companyRes]) => {
+      if (cancelled) return;
       const sub = subRes.data;
       const comp = companyRes.data as { response_rate?: number; avg_response_hours?: number; total_revenue?: number; wallet_balance?: number; withdrawable_balance?: number } | null;
       setSubscription(sub);
       if (!sub) {
         supabase.rpc('notify_unpaid_manufacturers').then(() => {}, () => {});
       }
-
-      // Compute dynamic real AI opportunities for this supplier's real catalogue
-      const matched = analyzeAndMatchOpportunities(supplierProds || [], activeReqs || []);
-      setAiSummary(generateAIOpportunitySummary(matched));
 
       setStats({
         totalProducts: prodRes.count ?? 0,
@@ -87,7 +98,21 @@ export default function SupplierDashboard() {
         openDisputes: dispRes.count ?? 0,
       });
       setLoading(false);
+
+      // Defer heavy AI matching so first paint isn't blocked
+      Promise.all([
+        getProducts({ companyId: company.id }),
+        getRequirements({ status: 'active', limit: 40 }),
+      ]).then(([supplierProds, activeReqs]) => {
+        if (cancelled) return;
+        const matched = analyzeAndMatchOpportunities(supplierProds || [], activeReqs || []);
+        setAiSummary(generateAIOpportunitySummary(matched));
+      }).catch(() => {});
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
     });
+
+    return () => { cancelled = true; };
   }, [user, company]);
 
   const statsCards = [
@@ -108,8 +133,8 @@ export default function SupplierDashboard() {
         description="BulkSkart dashboard — manage your account, orders and trade activity."
         robots="noindex, nofollow"
       />
-      <div className="flex-1 min-w-0 p-3 md:p-6 overflow-y-auto">
-        <div className="max-w-5xl w-full mx-auto">
+      <div className="flex-1 min-w-0 p-3 md:p-4 lg:p-5">
+        <div className="max-w-[1400px] w-full mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div className="min-w-0 flex-1">

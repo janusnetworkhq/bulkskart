@@ -122,6 +122,7 @@ export interface CompanyReview {
 export interface BuyerProfile {
   id: string;
   user_id: string;
+  public_slug?: string | null;
   company_name: string;
   business_type: string | null;
   gst_number: string | null;

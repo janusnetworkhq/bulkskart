@@ -129,7 +129,7 @@ export default function ShippingCalculatorPage() {
     <MainLayout>
       <PageMeta
         title="Shipping & Freight Quote Calculator | BulkSkart Logistics"
-        description="Get instant freight cost estimates for road, rail, sea cargo, and air shipping across global export corridors. Compare transit times and submit freight RFQs to verified logistics partners."
+        description="Every BulkSkart order includes free delivery. Compare the freight cost the platform covers for road, rail, sea, and air, then place the order with a ₹0 delivery charge."
         keywords="shipping calculator, freight quote, ocean freight calculator, air cargo rates, B2B shipping estimator"
         canonical="/shipping-calculator"
         ogType="website"
@@ -142,8 +142,12 @@ export default function ShippingCalculatorPage() {
         <div className="mb-8 text-center">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Shipping & Freight Calculator</h1>
           <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-            Instantly estimate shipping costs for road, rail, sea and air freight. Submit RFQs to logistics partners in one click.
+            Delivery is free on every order placed on BulkSkart. These estimates show the freight cost the platform covers, so you can compare routes before you order.
           </p>
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+            <Truck className="h-3.5 w-3.5" />
+            Your delivery charge on every order: ₹0
+          </div>
         </div>
 
         <div className="grid md:grid-cols-5 gap-6">
@@ -266,8 +270,8 @@ export default function ShippingCalculatorPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-bold text-primary">₹{r.costMin.toLocaleString()}–{r.costMax.toLocaleString()}</p>
-                              <p className="text-[10px] text-muted-foreground">estimated</p>
+                              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">You pay ₹0</p>
+                              <p className="text-[10px] text-muted-foreground line-through">Market ₹{r.costMin.toLocaleString()}–{r.costMax.toLocaleString()}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -277,7 +281,7 @@ export default function ShippingCalculatorPage() {
                 </div>
                 <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2.5">
                   <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>Estimates based on market rates. Actual costs vary by carrier, route, and cargo specifics.</span>
+                  <span>Market ranges are the freight BulkSkart covers. Your delivery charge on an order placed here is ₹0. Carrier rates still vary by route and cargo.</span>
                 </div>
                 {rfqSent ? (
                   <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/20 border border-green-300/50 rounded-xl p-3">

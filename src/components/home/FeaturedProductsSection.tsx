@@ -97,66 +97,79 @@ const MARKETPLACE_CATEGORIES: NavCategory[] = [
   { id: 'raw-materials', label: 'Raw Materials', dbSlugMatch: ['chemicals-raw-materials', 'raw-materials', 'plastics-rubber'], subCategories: ['All Subcategories', 'Polymer Granules', 'Aluminum Ingots', 'Titanium Alloys', 'Chemical Resins', 'Rubber Sheets'] },
 ];
 
-// Fallback high-resolution distinct photography per category/keyword to ensure NO repeated or random images
+/** Fast Unsplash WebP thumbs for category fallbacks (no Pixabay hotlinks) */
+const u = (id: string) =>
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=640&h=640&q=75&fm=webp`;
+
 const CATEGORY_IMAGE_BANKS: Record<string, string[]> = {
   apparel: [
-    'https://cdn.pixabay.com/photo/2016/07/12/11/45/towels-1511875_1280.jpg',
-    'https://cdn.pixabay.com/photo/2012/03/01/00/39/yarn-19781_1280.jpg',
-    'https://cdn.pixabay.com/photo/2012/11/11/18/23/fabric-65741_1280.jpg',
-    'https://cdn.pixabay.com/photo/2012/02/16/12/29/worker-13550_1280.jpg',
-    'https://cdn.pixabay.com/photo/2019/03/25/04/43/weaving-4079366_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/04/11/16/12/leather-2222053_1280.jpg',
+    u('photo-1558611848-73f7eb4001a1'),
+    u('photo-1620799140408-edc6dcb6d633'),
+    u('photo-1558769132-cb1aea458c5e'),
+    u('photo-1610030469983-98e550d6193c'),
   ],
   electronics: [
-    'https://cdn.pixabay.com/photo/2020/07/03/23/56/capacitors-5367873_1280.jpg',
-    'https://cdn.pixabay.com/photo/2016/04/06/00/39/amd-1310766_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/12/28/22/03/lens-3046269_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/08/25/23/29/wire-2681887_1280.jpg',
-    'https://cdn.pixabay.com/photo/2020/03/31/13/26/processor-4987614_1280.jpg',
+    u('photo-1518770660439-4636190af475'),
+    u('photo-1581092160562-40aa08e78837'),
+    u('photo-1550985543-f47df4b4c4e0'),
+    u('photo-1516035069371-29a1b244cc32'),
   ],
   machinery: [
-    'https://cdn.pixabay.com/photo/2016/09/12/07/48/mechanical-1663275_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/10/25/17/36/cans-2888650_1280.jpg',
-    'https://cdn.pixabay.com/photo/2014/09/13/21/46/milling-444493_1280.jpg',
-    'https://cdn.pixabay.com/photo/2021/03/25/12/30/laser-6122979_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/06/05/20/51/food-truck-2375246_1280.jpg',
-    'https://cdn.pixabay.com/photo/2014/06/25/11/13/brewery-377024_1280.jpg',
-    'https://cdn.pixabay.com/photo/2013/05/28/11/02/technology-114192_1280.jpg',
+    u('photo-1565793298595-6a879b1d9492'),
+    u('photo-1565043589221-1a6fd9ae45c7'),
+    u('photo-1581094794329-c8112a89af12'),
+    u('photo-1530587191325-3db32d826c18'),
+    u('photo-1596040033229-a9821ebd058d'),
   ],
   agriculture: [
-    'https://cdn.pixabay.com/photo/2015/08/25/03/50/basil-906137_1280.jpg',
-    'https://cdn.pixabay.com/photo/2018/04/18/23/48/herbs-3331961_1280.jpg',
-    'https://cdn.pixabay.com/photo/2021/10/31/14/32/fish-6757621_1280.jpg',
+    u('photo-1586201375761-83865001e31c'),
+    u('photo-1508747703725-719777637510'),
+    u('photo-1464226184884-fa280b87c399'),
   ],
   packaging: [
-    'https://cdn.pixabay.com/photo/2014/04/05/11/07/cardboard-314504_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/10/25/17/36/cans-2888650_1280.jpg',
-    'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg',
+    u('photo-1607166452427-7e4477079cb9'),
+    u('photo-1586528116311-ad8dd3c8310d'),
+    u('photo-1596462502278-27bfdc403348'),
+    u('photo-1563245372-f21724e3856d'),
   ],
   beauty: [
-    'https://cdn.pixabay.com/photo/2015/08/25/03/50/basil-906137_1280.jpg',
-    'https://cdn.pixabay.com/photo/2018/02/16/04/20/towel-3156896_1280.jpg',
+    u('photo-1608571423902-eed4a5ad8108'),
+    u('photo-1556228578-0d85b1a4d571'),
+    u('photo-1596462502278-27bfdc403348'),
   ],
   furniture: [
-    'https://cdn.pixabay.com/photo/2017/04/11/16/12/leather-2222053_1280.jpg',
+    u('photo-1586023492125-27b2c045efd7'),
+    u('photo-1617806118233-18e1de247200'),
+    u('photo-1567538096630-e0c55bd6374c'),
   ],
   construction: [
-    'https://cdn.pixabay.com/photo/2020/11/13/21/09/excavator-5739966_1280.jpg',
-    'https://cdn.pixabay.com/photo/2014/09/02/12/47/pipe-433609_1280.jpg',
-    'https://cdn.pixabay.com/photo/2015/08/16/09/55/tile-890729_1280.jpg',
+    u('photo-1504307651254-35680f356dfd'),
+    u('photo-1503387762-592deb58ef4e'),
+    u('photo-1565193566173-7a0ee3dbe261'),
+    u('photo-1504328345606-18bbc8c9d7d1'),
   ],
   automotive: [
-    'https://cdn.pixabay.com/photo/2017/01/05/10/38/auto-repair-1954636_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/10/04/21/01/turbine-engine-2817617_1280.jpg',
+    u('photo-1492144534655-ae79c964c9d7'),
+    u('photo-1581092918056-0c4c3acd3789'),
+    u('photo-1593941707882-a5bba14938c7'),
+  ],
+  'home-garden': [
+    u('photo-1416879595882-3373a0480b5b'),
+    u('photo-1556910103-1c02745aae4d'),
+  ],
+  electrical: [
+    u('photo-1621905252507-b35492cc74b4'),
+    u('photo-1558618666-fcd25c85cd64'),
   ],
   'renewable-energy': [
-    'https://cdn.pixabay.com/photo/2020/10/03/09/05/solar-energy-5622969_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/03/13/07/34/photovoltaic-2138992_1280.jpg',
-    'https://cdn.pixabay.com/photo/2013/10/06/18/58/solar-field-191683_1280.jpg',
+    u('photo-1509391366360-2e959784a276'),
+    u('photo-1613665813446-82a78c468a1d'),
+    u('photo-1473341304170-971dccb5ac1e'),
   ],
   'raw-materials': [
-    'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg',
-    'https://cdn.pixabay.com/photo/2017/08/25/23/29/wire-2681887_1280.jpg',
+    u('photo-1611273426858-450d8e3c9fce'),
+    u('photo-1600880292089-90a7e086ee0c'),
+    u('photo-1532187863486-abf9dbad1b69'),
   ],
 };
 
@@ -172,7 +185,83 @@ const COUNTRY_FLAGS: Record<string, string> = {
   UK: '🇬🇧',
   Turkey: '🇹🇷',
   Italy: '🇮🇹',
+  'South Korea': '🇰🇷',
+  Thailand: '🇹🇭',
+  Sweden: '🇸🇪',
+  France: '🇫🇷',
+  Brazil: '🇧🇷',
+  Malaysia: '🇲🇾',
+  Taiwan: '🇹🇼',
+  Vietnam: '🇻🇳',
 };
+
+/** Minimum catalog density for a full multi-column landing grid */
+const LANDING_CATALOG_MIN = 36;
+/** Cards shown in the landing grid at once (rotates every 30s) */
+const LANDING_DISPLAY_COUNT = 20;
+const ROTATION_SECONDS = 30;
+
+function createVisitSeed(): number {
+  const entropy =
+    (typeof performance !== 'undefined' ? performance.now() : 0) * 1000 +
+    Date.now() +
+    Math.floor(Math.random() * 1_000_000);
+  return (entropy >>> 0) || 1;
+}
+
+function shuffleWithSeed<T>(items: T[], seed: number): T[] {
+  const arr = [...items];
+  let s = seed >>> 0;
+  for (let i = arr.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = s % (i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function curatedToDisplay(p: CuratedProduct): DisplayProduct {
+  return {
+    id: p.id,
+    name: p.name,
+    subtitle: p.subtitle,
+    slug: p.slug,
+    companyId: p.companyId,
+    supplierName: p.supplierName,
+    country: p.country,
+    countryFlag: p.countryFlag,
+    isVerifiedSupplier: p.isVerifiedSupplier,
+    moq: p.moq,
+    usdMin: p.usdMin,
+    usdMax: p.usdMax,
+    inrMin: p.inrMin,
+    inrMax: p.inrMax,
+    badgeType: p.badgeType,
+    badgeLabel: p.badgeLabel,
+    rating: p.rating,
+    reviewCount: p.reviewCount,
+    img: p.img,
+    categoryName: p.categoryName,
+    subCategory: p.categoryName,
+  };
+}
+
+/** Pick a unique rotating window from the curated + live pool */
+function pickProductBatch(pool: DisplayProduct[], offset: number, count: number): DisplayProduct[] {
+  if (pool.length === 0) return [];
+  if (pool.length <= count) return pool;
+  const start = ((offset % pool.length) + pool.length) % pool.length;
+  const rotated = [...pool.slice(start), ...pool.slice(0, start)];
+  const seen = new Set<string>();
+  const batch: DisplayProduct[] = [];
+  for (const item of rotated) {
+    if (batch.length >= count) break;
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    batch.push(item);
+  }
+  return batch;
+}
 
 // Deterministically pick an authentic, non-repeated image based on product name hash
 function getAuthenticProductImage(productName: string, categorySlug: string, originalImage?: string): string {
@@ -180,7 +269,7 @@ function getAuthenticProductImage(productName: string, categorySlug: string, ori
 
   // Explicit check for mobile commercial food trucks / catering trailers
   if (nameLower.includes('food truck') || nameLower.includes('catering trailer') || nameLower.includes('mobile kitchen')) {
-    return 'https://cdn.pixabay.com/photo/2017/06/05/20/51/food-truck-2375246_1280.jpg';
+    return u('photo-1596040033229-a9821ebd058d');
   }
 
   // Reject generic or mismatched assets (passports, cash, currency, generic tokens)
@@ -204,23 +293,27 @@ function getAuthenticProductImage(productName: string, categorySlug: string, ori
 
   if (nameLower.includes('cloth') || nameLower.includes('silk') || nameLower.includes('cotton') || nameLower.includes('fabric') || nameLower.includes('denim') || nameLower.includes('garment') || nameLower.includes('saree') || slugLower.includes('textile') || slugLower.includes('apparel')) {
     bankKey = 'apparel';
-  } else if (nameLower.includes('chip') || nameLower.includes('sensor') || nameLower.includes('electronic') || nameLower.includes('iot') || nameLower.includes('cctv') || slugLower.includes('electronic')) {
+  } else if (nameLower.includes('chip') || nameLower.includes('sensor') || nameLower.includes('electronic') || nameLower.includes('iot') || nameLower.includes('cctv') || nameLower.includes('pcb') || nameLower.includes('led') || slugLower.includes('electronic')) {
     bankKey = 'electronics';
-  } else if (nameLower.includes('solar') || nameLower.includes('battery') || nameLower.includes('lifepo4') || nameLower.includes('clean energy') || slugLower.includes('renewable')) {
+  } else if (nameLower.includes('solar') || nameLower.includes('battery') || nameLower.includes('lifepo4') || nameLower.includes('clean energy') || nameLower.includes('inverter') || slugLower.includes('renewable')) {
     bankKey = 'renewable-energy';
+  } else if (nameLower.includes('cable') || nameLower.includes('wire') || nameLower.includes('switchgear') || nameLower.includes('transformer') || slugLower.includes('electrical')) {
+    bankKey = 'electrical';
   } else if (nameLower.includes('rice') || nameLower.includes('cashew') || nameLower.includes('spice') || nameLower.includes('grain') || nameLower.includes('tea') || slugLower.includes('agri')) {
     bankKey = 'agriculture';
-  } else if (nameLower.includes('bag') || nameLower.includes('box') || nameLower.includes('packaging') || nameLower.includes('kraft') || slugLower.includes('pack')) {
+  } else if (nameLower.includes('bag') || nameLower.includes('box') || nameLower.includes('packaging') || nameLower.includes('kraft') || nameLower.includes('pouch') || slugLower.includes('pack')) {
     bankKey = 'packaging';
   } else if (nameLower.includes('granule') || nameLower.includes('titanium') || nameLower.includes('polymer') || nameLower.includes('resin') || slugLower.includes('chemical') || slugLower.includes('raw')) {
     bankKey = 'raw-materials';
-  } else if (nameLower.includes('collagen') || nameLower.includes('cosmetic') || nameLower.includes('skin') || slugLower.includes('beauty')) {
+  } else if (nameLower.includes('collagen') || nameLower.includes('cosmetic') || nameLower.includes('skin') || nameLower.includes('essential oil') || slugLower.includes('beauty')) {
     bankKey = 'beauty';
-  } else if (nameLower.includes('chair') || nameLower.includes('table') || nameLower.includes('furniture') || slugLower.includes('furniture')) {
+  } else if (nameLower.includes('chair') || nameLower.includes('table') || nameLower.includes('furniture') || nameLower.includes('dining') || slugLower.includes('furniture')) {
     bankKey = 'furniture';
-  } else if (nameLower.includes('rebar') || nameLower.includes('cement') || nameLower.includes('construction') || slugLower.includes('construct')) {
+  } else if (nameLower.includes('planter') || nameLower.includes('cookware') || nameLower.includes('garden') || slugLower.includes('home-garden') || slugLower.includes('home')) {
+    bankKey = 'home-garden';
+  } else if (nameLower.includes('rebar') || nameLower.includes('cement') || nameLower.includes('tile') || nameLower.includes('scaffold') || nameLower.includes('construction') || nameLower.includes('lumber') || slugLower.includes('construct')) {
     bankKey = 'construction';
-  } else if (nameLower.includes('charger') || nameLower.includes('car') || nameLower.includes('pump') || nameLower.includes('motor') || slugLower.includes('auto')) {
+  } else if (nameLower.includes('charger') || nameLower.includes('bearing') || nameLower.includes('chassis') || nameLower.includes('ev ') || slugLower.includes('auto')) {
     bankKey = 'automotive';
   }
 
@@ -233,31 +326,13 @@ function getAuthenticProductImage(productName: string, categorySlug: string, ori
   return pool[Math.abs(hash)];
 }
 
-// Helper to initialize products instantly at 0ms with zero loading delay
-function getInitialDisplayProducts(): DisplayProduct[] {
-  return CURATED_INDUSTRIAL_PRODUCTS.slice(0, 18).map(p => ({
-    id: p.id,
-    name: p.name,
-    subtitle: p.subtitle,
-    slug: p.slug,
-    companyId: p.companyId,
-    supplierName: p.supplierName,
-    country: p.country,
-    countryFlag: p.countryFlag,
-    isVerifiedSupplier: p.isVerifiedSupplier,
-    moq: p.moq,
-    usdMin: p.usdMin,
-    usdMax: p.usdMax,
-    inrMin: p.inrMin,
-    inrMax: p.inrMax,
-    badgeType: p.badgeType,
-    badgeLabel: p.badgeLabel,
-    rating: p.rating,
-    reviewCount: p.reviewCount,
-    img: p.img,
-    categoryName: p.categoryName,
-    subCategory: p.categoryName,
-  }));
+// Instant first paint — visit-shuffled so every refresh shows a different batch
+function getInitialDisplayProducts(seed = createVisitSeed()): DisplayProduct[] {
+  const shuffled = shuffleWithSeed(
+    CURATED_INDUSTRIAL_PRODUCTS.map(curatedToDisplay),
+    seed
+  );
+  return pickProductBatch(shuffled, 0, LANDING_DISPLAY_COUNT);
 }
 
 export default function FeaturedProductsSection() {
@@ -291,8 +366,24 @@ export default function FeaturedProductsSection() {
     }
   };
 
+  // Visit seed → different product batch on every hard refresh
+  const visitSeedRef = useRef<number>(createVisitSeed());
+  const [catalogPool, setCatalogPool] = useState<DisplayProduct[]>(() =>
+    shuffleWithSeed(CURATED_INDUSTRIAL_PRODUCTS.map(curatedToDisplay), visitSeedRef.current)
+  );
+  const [rotationOffset, setRotationOffset] = useState(
+    () => visitSeedRef.current % Math.max(1, CURATED_INDUSTRIAL_PRODUCTS.length)
+  );
+  const rotationOffsetRef = useRef(rotationOffset);
+  rotationOffsetRef.current = rotationOffset;
+  const [secondsLeft, setSecondsLeft] = useState(ROTATION_SECONDS);
+  const [isRotating, setIsRotating] = useState(false);
+  const rotateAnimRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Pagination state initialized with instant curated catalog (0ms delay)
-  const [products, setProducts] = useState<DisplayProduct[]>(() => getInitialDisplayProducts());
+  const [products, setProducts] = useState<DisplayProduct[]>(() =>
+    getInitialDisplayProducts(visitSeedRef.current)
+  );
   const [totalCount, setTotalCount] = useState<number>(5355);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -308,6 +399,50 @@ export default function FeaturedProductsSection() {
 
   // Category scroll container reference
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+
+  /** True when user is browsing the default featured rail (safe to auto-rotate) */
+  const isDefaultBrowse =
+    selectedCategory === 'all' &&
+    selectedSubCategory === 'all' &&
+    !debouncedSearch &&
+    moqFilter === 'all' &&
+    priceFilter === 'all' &&
+    !verifiedOnly &&
+    ratingFilter === 'all' &&
+    sortBy === 'popular' &&
+    page === 1;
+
+  const advanceProductBatch = useCallback((step = LANDING_DISPLAY_COUNT) => {
+    setIsRotating(true);
+    setRotationOffset((r) => r + step);
+    setSecondsLeft(ROTATION_SECONDS);
+    if (rotateAnimRef.current) clearTimeout(rotateAnimRef.current);
+    rotateAnimRef.current = setTimeout(() => setIsRotating(false), 420);
+  }, []);
+
+  // Apply rotating window whenever offset / pool changes (default browse only)
+  useEffect(() => {
+    if (!isDefaultBrowse) return;
+    setProducts(pickProductBatch(catalogPool, rotationOffset, LANDING_DISPLAY_COUNT));
+  }, [catalogPool, rotationOffset, isDefaultBrowse]);
+
+  // 30-second live catalog rotation
+  useEffect(() => {
+    if (!isDefaultBrowse) return;
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          queueMicrotask(() => advanceProductBatch(LANDING_DISPLAY_COUNT));
+          return ROTATION_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+      if (rotateAnimRef.current) clearTimeout(rotateAnimRef.current);
+    };
+  }, [isDefaultBrowse, advanceProductBatch]);
 
   // Debounce search input
   useEffect(() => {
@@ -487,9 +622,8 @@ export default function FeaturedProductsSection() {
         };
       });
 
-      // Enrich with curated industrial products if DB returned fewer than 15 items
-      // This guarantees balanced 3D multi-column grids (15 items = 3 full rows of 5, 5 full rows of 3)
-      if (formatted.length < 15) {
+      // Enrich with curated Alibaba-style samples so the landing grid stays dense & professional
+      if (formatted.length < LANDING_CATALOG_MIN) {
         const seenNames = new Set(formatted.map(p => p.name.toLowerCase()));
         
         // Priority 1: Match category if selected
@@ -507,7 +641,7 @@ export default function FeaturedProductsSection() {
 
         const pool = [...matchingCategory, ...otherCurated];
         for (const item of pool) {
-          if (formatted.length >= 15) break;
+          if (formatted.length >= LANDING_CATALOG_MIN) break;
           seenNames.add(item.name.toLowerCase());
           formatted.push({
             id: item.id,
@@ -534,24 +668,43 @@ export default function FeaturedProductsSection() {
         }
       }
 
-      if (append) {
-        setProducts(prev => {
-          const map = new Map<string, DisplayProduct>();
-          [...prev, ...formatted].forEach(item => {
-            if (!map.has(item.id)) {
-              map.set(item.id, item);
-            }
-          });
-          return Array.from(map.values());
-        });
-      } else {
+      const dedupe = (list: DisplayProduct[]) => {
         const map = new Map<string, DisplayProduct>();
-        formatted.forEach(item => {
-          if (!map.has(item.id)) {
-            map.set(item.id, item);
-          }
+        list.forEach(item => {
+          if (!map.has(item.id)) map.set(item.id, item);
         });
-        setProducts(Array.from(map.values()));
+        return Array.from(map.values());
+      };
+
+      if (append) {
+        setProducts(prev => dedupe([...prev, ...formatted]));
+      } else {
+        const unique = dedupe(formatted);
+        // Default featured rail: merge live DB + curated into a rotation pool,
+        // then show a visit-seeded window (changes every refresh + every 30s).
+        const browsingDefault =
+          selectedCategory === 'all' &&
+          selectedSubCategory === 'all' &&
+          !debouncedSearch &&
+          moqFilter === 'all' &&
+          priceFilter === 'all' &&
+          !verifiedOnly &&
+          ratingFilter === 'all' &&
+          sortBy === 'popular' &&
+          !append &&
+          targetPage === 1;
+
+        if (browsingDefault) {
+          const merged = dedupe([
+            ...unique,
+            ...CURATED_INDUSTRIAL_PRODUCTS.map(curatedToDisplay),
+          ]);
+          const shuffled = shuffleWithSeed(merged, visitSeedRef.current ^ (Date.now() & 0xffff));
+          setCatalogPool(shuffled);
+          setProducts(pickProductBatch(shuffled, rotationOffsetRef.current, LANDING_DISPLAY_COUNT));
+        } else {
+          setProducts(unique);
+        }
       }
       setTotalCount(res.totalCount > 0 ? res.totalCount : 5355);
       setHasMore(res.hasMore);
@@ -563,7 +716,17 @@ export default function FeaturedProductsSection() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [filterParams, selectedCategory]);
+  }, [
+    filterParams,
+    selectedCategory,
+    selectedSubCategory,
+    debouncedSearch,
+    moqFilter,
+    priceFilter,
+    verifiedOnly,
+    ratingFilter,
+    sortBy,
+  ]);
 
   // Re-fetch on filter changes
   useEffect(() => {
@@ -654,13 +817,15 @@ export default function FeaturedProductsSection() {
                   <span className="text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono border border-border">
                     {totalCount.toLocaleString()}+ Items
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live 5-Min Dynamic Rotation
-                  </span>
+                  {isDefaultBrowse && (
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm tabular-nums">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live 30s Rotation · {secondsLeft}s
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Direct wholesale catalog from verified global factories with multi-tier bulk pricing
+                  Direct wholesale catalog from verified global factories — fresh batch every 30 seconds
                 </p>
               </div>
             </div>
@@ -670,12 +835,24 @@ export default function FeaturedProductsSection() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => fetchProducts(1, false)}
+                onClick={() => {
+                  visitSeedRef.current = createVisitSeed();
+                  if (isDefaultBrowse && catalogPool.length > 0) {
+                    const reshuffled = shuffleWithSeed(catalogPool, visitSeedRef.current);
+                    setCatalogPool(reshuffled);
+                    setRotationOffset(visitSeedRef.current % Math.max(1, reshuffled.length));
+                    setSecondsLeft(ROTATION_SECONDS);
+                    setIsRotating(true);
+                    if (rotateAnimRef.current) clearTimeout(rotateAnimRef.current);
+                    rotateAnimRef.current = setTimeout(() => setIsRotating(false), 420);
+                  }
+                  fetchProducts(1, false);
+                }}
                 disabled={loading}
                 className="h-8 px-2.5 bg-card border-border hover:bg-muted text-xs rounded-lg"
-                title="Refresh product catalog"
+                title="Shuffle & refresh featured catalog"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#FF5A00]' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${loading || isRotating ? 'animate-spin text-[#FF5A00]' : ''}`} />
                 <span className="hidden sm:inline ml-1.5">Refresh</span>
               </Button>
 
@@ -1095,7 +1272,7 @@ export default function FeaturedProductsSection() {
                         key={`carousel-${product.id}`}
                         className="shrink-0 w-[150px] min-[360px]:w-[165px] snap-start bg-card border border-border hover:border-[#FF5A00]/50 rounded-xl overflow-hidden flex flex-col justify-between shadow-sm"
                       >
-                        <div className="relative aspect-[4/3] w-full bg-muted overflow-hidden">
+                        <div className="relative aspect-square w-full bg-muted overflow-hidden">
                           <SafeImage
                             src={product.img}
                             alt={product.name}
@@ -1125,7 +1302,7 @@ export default function FeaturedProductsSection() {
                             size="sm"
                             className="w-full h-7 mt-2 bg-[#FF5A00] hover:bg-[#e04f00] text-white text-[10px] font-bold rounded-lg p-0"
                           >
-                            Get Quote
+                            Get Best Price
                           </Button>
                         </div>
                       </div>
@@ -1138,29 +1315,35 @@ export default function FeaturedProductsSection() {
             {/* Responsive Product Marketplace Grid */}
             {/* Mobile: Exactly 2-column grid without text clipping */}
             {/* Desktop PC: Balanced 3 to 4 columns (up to 5 on 2K+) */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3.5 md:gap-4">
-            {products.map((product) => {
+            <div
+              className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3.5 md:gap-4 transition-opacity duration-300 ${
+                isRotating ? 'opacity-55' : 'opacity-100'
+              }`}
+            >
+            {products.map((product, productIdx) => {
               const isFav = favorites.has(product.id);
 
               return (
                 <div
-                  key={product.id}
-                  className="group bg-card hover:bg-muted/40 border border-border hover:border-[#FF5A00]/50 rounded-xl overflow-hidden transition-all duration-300 flex flex-col shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,0,0.12)] relative"
+                  key={`${product.id}-${rotationOffset}`}
+                  className="group bg-card hover:bg-muted/40 border border-border hover:border-[#FF5A00]/50 rounded-xl overflow-hidden transition-all duration-300 flex flex-col shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,0,0.12)] relative animate-in fade-in duration-300"
                 >
                     {/* ── Product Image Container ── */}
-                    <div className="relative aspect-[4/3] w-full bg-muted overflow-hidden">
+                    <div className="relative aspect-square w-full bg-muted overflow-hidden">
                       <SafeImage
                         src={product.img}
                         alt={product.name}
                         productId={product.id}
                         category={product.categoryName}
                         isDuplicateOnPage={false}
+                        isRepresentativeImage={true}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
+                        loading={productIdx < 6 ? 'eager' : 'lazy'}
+                        priority={productIdx < 4}
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
                       />
 
-                    {/* Dark gradient overlay for badge readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
 
                     {/* Top-Left Dynamic Badge */}
                     <div className="absolute top-1.5 left-1.5 z-10">
@@ -1298,7 +1481,7 @@ export default function FeaturedProductsSection() {
                         onClick={() => openQuoteModal(product)}
                         className="h-7 sm:h-7.5 bg-[#FF5A00] hover:bg-[#e04f00] text-white text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm hover:shadow-[0_0_10px_rgba(255,90,0,0.5)] transition-all px-1"
                       >
-                        Get Quote
+                        Get Best Price
                       </Button>
                     </div>
                   </div>

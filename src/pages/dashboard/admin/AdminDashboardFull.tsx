@@ -15,6 +15,7 @@ import {
   TrendingUp, Package, MessageSquare, Wallet, Shield,
 } from 'lucide-react';
 import PageMeta from '@/components/common/PageMeta';
+import AdminLoanRequests from '@/components/dashboard/AdminLoanRequests';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -273,8 +274,13 @@ export default function AdminDashboardFull() {
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="companies">All Companies</TabsTrigger>
+                <TabsTrigger value="loans">Loan Requests</TabsTrigger>
               </TabsList>
             </div>
+
+            <TabsContent value="loans">
+              {tab === 'loans' ? <AdminLoanRequests /> : null}
+            </TabsContent>
 
             {/* ── Overview ─────────────────────────────── */}
             <TabsContent value="overview">

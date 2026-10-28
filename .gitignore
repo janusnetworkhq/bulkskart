@@ -16,6 +16,18 @@ package-lock.json
 playwright-report
 test-results
 
+# Secrets / local env (never push)
+.env
+.env.*
+!.env.example
+**/CREDENTIALS.txt
+*.pem
+
+# Heavy / local-only dumps
+/backups
+deploy/bulkskart/stack/.env
+deploy/bulkskart/stack/volumes/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,7 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/db/supabase';
 import type { Profile, Company, BuyerProfile, Subscription } from '@/types/types';
+import {
+  type AppRole,
+  displayNameFromUser,
+  getDashboardPathForRole,
+  normalizeAppRole,
+  resolveUserRole,
+} from '@/lib/authRole';
 
 interface AuthContextValue {
   user: User | null;
@@ -12,6 +19,10 @@ interface AuthContextValue {
   subscription: Subscription | null;
   isPaidSubscriber: boolean;
   loading: boolean;
+  /** Resolved buyer | supplier | admin from profile or signup metadata */
+  resolvedRole: AppRole | null;
+  displayName: string;
+  dashboardPath: string;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string, role: 'buyer' | 'supplier') => Promise<{ error: string | null; user?: User | null }>;
   signOut: () => Promise<void>;
@@ -20,6 +31,32 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/** Map gateway / SDK parse failures into a clear user-facing message */
+function normalizeAuthError(raw?: string | null): string {
+  const msg = (raw || '').trim();
+  if (!msg) return 'Authentication failed. Please try again.';
+  const lower = msg.toLowerCase();
+  if (
+    lower === 'unauthorized' ||
+    lower.includes('unexpected token') ||
+    lower.includes('is not valid json') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror')
+  ) {
+    return 'Unable to reach the authentication service. Please refresh and try again. If this continues, contact support.';
+  }
+  if (lower.includes('already registered') || lower.includes('already exists') || lower.includes('user already registered')) {
+    return 'An account with this email address already exists. Please sign in instead.';
+  }
+  if (lower.includes('invalid login credentials') || lower.includes('invalid_credentials')) {
+    return 'Invalid email or password. Please verify your credentials or click "Forgot password?" to reset.';
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'Please verify your email address before signing in, or use password reset.';
+  }
+  return msg;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -63,16 +100,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const fetchProfile = async (userId: string) => {
-    const { data: profileData } = await supabase
+  const fetchProfile = async (userId: string, authUser?: User | null) => {
+    const { data: existing, error: profileErr } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+
+    if (profileErr) {
+      console.warn('Profile fetch failed:', profileErr.message);
+    }
+
+    let profileData = existing as Profile | null;
+    const metaUser = authUser || user;
+    const metaRole = resolveUserRole(null, metaUser);
+    const metaName = displayNameFromUser(null, metaUser);
+    const metaEmail = (metaUser?.email || existing?.email || '').toLowerCase();
+
+    // Ensure a profile row always exists after signup/login
+    if (!profileData) {
+      const bootstrapRole = metaRole || 'buyer';
+      const { data: created, error: createErr } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            id: userId,
+            email: metaEmail || `${userId}@users.bulkskart`,
+            full_name: metaName !== 'User' ? metaName : metaEmail.split('@')[0] || 'User',
+            role: bootstrapRole,
+            status: 'active',
+          },
+          { onConflict: 'id' }
+        )
+        .select('*')
+        .maybeSingle();
+      if (createErr) {
+        console.warn('Profile bootstrap failed:', createErr.message);
+      }
+      profileData = (created as Profile | null) || {
+        id: userId,
+        email: metaEmail,
+        full_name: metaName,
+        role: bootstrapRole,
+        status: 'active',
+      } as Profile;
+    } else {
+      // Repair mismatched / incomplete profiles (do not override finished buyer onboarding)
+      const repairs: Record<string, unknown> = {};
+      const dbRole = normalizeAppRole(profileData.role);
+      const onboardingDone = Boolean((profileData as Profile & { onboarding_completed?: boolean }).onboarding_completed);
+
+      if (metaRole && metaRole !== 'buyer' && dbRole === 'buyer' && !onboardingDone) {
+        repairs.role = metaRole;
+        profileData = { ...profileData, role: metaRole };
+      }
+
+      // Owning a company is a strong supplier signal even if role drifted to buyer
+      if (normalizeAppRole(profileData.role) === 'buyer') {
+        const { count: companyCount } = await supabase
+          .from('companies')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId);
+        if ((companyCount ?? 0) > 0) {
+          repairs.role = 'supplier';
+          profileData = { ...profileData, role: 'supplier' };
+        }
+      }
+
+      if ((!profileData.full_name || profileData.full_name === 'User') && metaName && metaName !== 'User') {
+        repairs.full_name = metaName;
+        profileData = { ...profileData, full_name: metaName };
+      }
+      if (Object.keys(repairs).length > 0) {
+        repairs.updated_at = new Date().toISOString();
+        const { error: repairErr } = await supabase.from('profiles').update(repairs).eq('id', userId);
+        if (repairErr) console.warn('Profile repair failed:', repairErr.message);
+      }
+    }
+
     setProfile(profileData);
 
+    const effectiveRole = normalizeAppRole(profileData?.role) || metaRole;
     let compData: Company | null = null;
-    if (profileData?.role === 'supplier' || profileData?.role === 'admin') {
+    if (effectiveRole === 'supplier' || effectiveRole === 'admin') {
       const { data } = await supabase
         .from('companies')
         .select('*')
@@ -80,19 +190,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
       compData = data;
       setCompany(compData);
-      await fetchSubscription(compData?.id, profileData?.role);
+      await fetchSubscription(compData?.id, effectiveRole || undefined);
+
+      if (compData?.id && effectiveRole === 'supplier') {
+        try {
+          const { ensureManufacturerWelcomeLeads } = await import('@/lib/api');
+          ensureManufacturerWelcomeLeads(compData.id, compData.company_name || 'Your Factory');
+        } catch {
+          /* non-blocking */
+        }
+      }
     } else {
+      setCompany(null);
       setSubscription(null);
       setIsPaidSubscriber(false);
     }
 
-    if (profileData?.role === 'buyer') {
+    if (effectiveRole === 'buyer') {
       const { data: bp } = await supabase
         .from('buyer_profiles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
       setBuyerProfile(bp);
+    } else {
+      setBuyerProfile(null);
     }
   };
 
@@ -107,20 +229,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = async (targetUserId?: string) => {
     const uid = targetUserId || user?.id;
     if (uid) {
-      await fetchProfile(uid);
+      await fetchProfile(uid, user);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    // Failsafe timeout: never allow the app to stay in loading state beyond 3 seconds
-    // even if network requests to Supabase are stalled or offline
+    // Failsafe timeout: never allow the app to stay in loading state beyond 5 seconds
     const safetyTimer = setTimeout(() => {
       if (isMounted) {
         setLoading(false);
       }
-    }, 3000);
+    }, 5000);
 
     supabase.auth.getSession()
       .then(({ data: { session: s } }) => {
@@ -128,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(s);
         setUser(s?.user ?? null);
         if (s?.user) {
-          fetchProfile(s.user.id)
+          fetchProfile(s.user.id, s.user)
             .catch(() => {})
             .finally(() => {
               if (isMounted) {
@@ -149,9 +270,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(async (event, s) => {
       if (!isMounted) return;
-      // Immediately reset previous account state to prevent cross-account leak
+
+      // Avoid wiping profile on routine token refresh (causes buyer-dashboard flash)
+      if (event === 'TOKEN_REFRESHED' && s?.user) {
+        setSession(s);
+        setUser(s.user);
+        return;
+      }
+
       setProfile(null);
       setCompany(null);
       setBuyerProfile(null);
@@ -161,8 +289,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        await fetchProfile(s.user.id).catch(() => {});
+        await fetchProfile(s.user.id, s.user).catch(() => {});
       }
+      if (isMounted) setLoading(false);
     });
 
     return () => {
@@ -188,31 +317,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        if (
-          error.message.includes('Invalid login credentials') ||
-          error.message.includes('invalid_credentials')
-        ) {
-          return {
-            error: 'Invalid email or password. Please verify your credentials or click "Forgot password?" to reset.',
-          };
-        }
-        if (error.message.includes('Email not confirmed')) {
-          return {
-            error: 'Please verify your email address before signing in, or use password reset.',
-          };
-        }
-        return { error: error.message };
+        return { error: normalizeAuthError(error.message) };
       }
 
       if (data?.user) {
         setSession(data.session);
         setUser(data.user);
-        await fetchProfile(data.user.id).catch(() => {});
+        await fetchProfile(data.user.id, data.user).catch(() => {});
       }
 
       return { error: null };
     } catch (e: any) {
-      return { error: e?.message || 'Login failed. Please check your network connection.' };
+      return { error: normalizeAuthError(e?.message) || 'Login failed. Please check your network connection.' };
     }
   };
 
@@ -248,34 +364,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        if (
-          error.message.includes('already registered') ||
-          error.message.includes('User already registered')
-        ) {
-          return {
-            error: 'An account with this email address already exists. Please sign in instead.',
-          };
-        }
-        return { error: error.message };
+        return { error: normalizeAuthError(error.message) };
       }
 
       // If email is already registered, Supabase returns user with empty identities array
       if (data.user && data.user.identities && data.user.identities.length === 0) {
         return {
-          error: 'An account with this email address already exists. Please sign in instead.',
+          error: normalizeAuthError('User already registered'),
         };
       }
 
       if (data.user) {
-        // Fallback upsert user profile (the DB trigger on_auth_user_created also handles this)
+        // Force-write role from the registration form (trigger may race / miss metadata)
         try {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            email: cleanEmail,
-            full_name: cleanName || cleanEmail.split('@')[0],
-            role,
-            status: 'active',
-          });
+          await supabase.from('profiles').upsert(
+            {
+              id: data.user.id,
+              email: cleanEmail,
+              full_name: cleanName || cleanEmail.split('@')[0],
+              role,
+              status: 'active',
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+          // Explicit update covers ON CONFLICT paths that skip role
+          await supabase
+            .from('profiles')
+            .update({ role, full_name: cleanName || cleanEmail.split('@')[0] })
+            .eq('id', data.user.id);
         } catch {
           // Trigger handles profile creation if client RLS restricts
         }
@@ -289,21 +406,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (sData?.session) {
             setSession(sData.session);
             setUser(sData.user);
+            await fetchProfile(sData.user.id, sData.user).catch(() => {});
+            return { error: null, user: sData.user };
           }
         } else {
           setSession(data.session);
           setUser(data.user);
         }
 
-        // Fetch fresh profile state for the newly registered user
-        await fetchProfile(data.user.id).catch(() => {});
+        await fetchProfile(data.user.id, data.user).catch(() => {});
 
         return { error: null, user: data.user };
       }
 
       return { error: null };
     } catch (e: any) {
-      return { error: e?.message || 'Failed to complete registration' };
+      return { error: normalizeAuthError(e?.message) || 'Failed to complete registration' };
     }
   };
 
@@ -358,6 +476,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resolvedRole = useMemo(() => resolveUserRole(profile, user), [profile, user]);
+  const displayName = useMemo(() => displayNameFromUser(profile, user), [profile, user]);
+  const dashboardPath = useMemo(() => getDashboardPathForRole(resolvedRole), [resolvedRole]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -369,6 +491,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscription,
         isPaidSubscriber,
         loading,
+        resolvedRole,
+        displayName,
+        dashboardPath,
         signIn,
         signUp,
         signOut,

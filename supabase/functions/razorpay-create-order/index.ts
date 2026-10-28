@@ -20,10 +20,21 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   try {
-    const keyId       = Deno.env.get('RAZORPAY_KEY_ID')!;
-    const keySecret   = Deno.env.get('RAZORPAY_KEY_SECRET')!;
+    const keyId       = (Deno.env.get('RAZORPAY_KEY_ID') || '').trim();
+    const keySecret   = (Deno.env.get('RAZORPAY_KEY_SECRET') || '').trim();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    if (!keyId || !keySecret) {
+      console.error('Razorpay keys missing: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set on edge runtime');
+      return new Response(JSON.stringify({
+        error: 'Payment gateway is not configured. Please contact support.',
+        code: 'RAZORPAY_KEYS_MISSING',
+      }), {
+        status: 503,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
 
     const authHeader = req.headers.get('Authorization') ?? '';
     const supabase = createClient(supabaseUrl, serviceKey);

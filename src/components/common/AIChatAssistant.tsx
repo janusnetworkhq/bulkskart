@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, X, Send, Bot, Sparkles, User, RefreshCw, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { WHATSAPP_DISPLAY, WHATSAPP_MESSAGE_URL } from '@/lib/supportContact';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -28,10 +29,17 @@ const KB: Record<string, string> = {
   'verif': 'BulkSkart authenticates enterprises via GST registration, PAN number, IEC code for foreign trade, physical premises verification, and industrial certifications (ISO/CE). Verified companies display a green shield badge.',
   'escrow': 'BulkSkart Trade Assurance holds funds securely in escrow until you inspect and confirm receipt of goods according to specifications. Contact trade support to enable escrow protection on your order.',
   'payment': 'BulkSkart supports secure payments via Razorpay (UPI, Net Banking, NEFT/RTGS, Corporate Cards) as well as offline Letter of Credit (L/C) and Documents Against Payment (D/P) for bulk industrial shipments.',
-  'shipping': 'Visit the Shipping Calculator (/shipping-calculator) to estimate freight rates across India (Road/Rail/Air) and globally (Sea FCL/LCL). You can also request logistics quotes directly from vetted freight partners.',
+  'free delivery': 'Delivery is free on every order placed on BulkSkart. No delivery fee is added at checkout, for any order value or category. See the offer on the homepage (#order-benefits) or at /loan-calculator.',
+  'delivery fee': 'Your delivery fee on BulkSkart is ₹0. Free delivery applies to all orders on this platform.',
+  'emi': 'Use the order loan calculator on the homepage or at /loan-calculator. Enter the order value, down payment, annual rate, and tenure to see the monthly installment. Delivery on the order stays free. The result is a planning estimate, not a credit approval.',
+  'loan': 'Use the order loan calculator on the homepage or at /loan-calculator. Set the order value, then submit a loan request with your name, company, phone, email, city, and the amount you want financed. Delivery stays free. Submitting a request is not a loan approval.',
+  'shipping': 'Every order placed on BulkSkart includes free delivery, so your checkout delivery charge is ₹0. The Shipping Calculator (/shipping-calculator) shows the freight cost BulkSkart covers. You can also estimate an order installment at /loan-calculator.',
+  'deliver': 'Delivery is free on every order placed on BulkSkart. No delivery fee is added at checkout, for any order value or category. Lead time still depends on the supplier and the route. Estimate a monthly installment at /loan-calculator.',
   'bulk price': 'Product pages feature tiered wholesale pricing. As order volume increases, price brackets drop automatically. You can also negotiate custom contract pricing via direct chat.',
   'setup': 'You can complete your official business registration anytime via the 5-step Business Setup Wizard (/business-setup). It configures your company details, products, MOQ, and verification credentials.',
   'lead': 'Verified manufacturers and suppliers receive real-time RFQ leads matched to their registered product categories. Premium subscribers gain access to instant buyer direct contact information.',
+  'whatsapp': `Message BulkSkart support on WhatsApp at ${WHATSAPP_DISPLAY}, or open the chat here: ${WHATSAPP_MESSAGE_URL}`,
+  'support': `For support, email info@bulkskart.com or message BulkSkart on WhatsApp at ${WHATSAPP_DISPLAY}: ${WHATSAPP_MESSAGE_URL}`,
 };
 
 function getResponse(q: string): string {
@@ -244,6 +252,15 @@ export default function AIChatAssistant() {
               </button>
             </div>
           </div>
+          <a
+            href={WHATSAPP_MESSAGE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-between gap-2 px-4 py-2 bg-[#25D366]/10 border-b border-border text-[11px] font-semibold text-[#128C7E] hover:bg-[#25D366]/15"
+          >
+            <span>Message BulkSkart on WhatsApp</span>
+            <span className="font-mono">{WHATSAPP_DISPLAY}</span>
+          </a>
 
           {/* Messages Scroll Area */}
           <div className="flex-1 overflow-y-auto p-3.5 space-y-3 min-h-0 bg-background/50">

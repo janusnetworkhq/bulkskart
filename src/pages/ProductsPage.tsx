@@ -147,10 +147,10 @@ function ProductCard({
   return (
     <Link
       to={`/products/${product.slug}`}
-      className="group bg-[#0e121b]/95 hover:bg-[#151a26] border border-slate-800/90 hover:border-[#FF5A00]/70 rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300 hover:shadow-[0_12px_28px_rgba(255,90,0,0.22)] hover:-translate-y-1 relative backdrop-blur-md"
+      className="group bg-card hover:bg-muted/40 border border-border hover:border-[#FF5A00]/60 rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300 hover:shadow-[0_12px_28px_rgba(255,90,0,0.12)] hover:-translate-y-0.5 relative"
     >
       {/* Image */}
-      <div className="aspect-[4/3] overflow-hidden bg-muted relative shrink-0">
+      <div className="aspect-square overflow-hidden bg-muted relative shrink-0">
         <SafeImage
           src={product.images?.[0] || (product as any).representative_storage_url}
           alt={product.name}

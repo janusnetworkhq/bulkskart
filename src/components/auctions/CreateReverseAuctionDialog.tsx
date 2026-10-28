@@ -292,7 +292,7 @@ export default function CreateReverseAuctionDialog({
         const totalPaise = Math.round(bill.totalAmount * 100); // 5900 * 100 = 590000 paise
 
         const options = {
-          key: 'rzp_live_TeduiMFzMJqROC',
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TZ1W7USRc0Injp',
           amount: totalPaise,
           currency: 'INR',
           name: 'BulkSkart B2B Marketplace',

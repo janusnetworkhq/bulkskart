@@ -226,7 +226,7 @@ function generateSlug(name: string) {
 }
 
 export default function AuthPage() {
-  const { user, profile, signIn, signUp, signOut, refreshProfile } = useAuth();
+  const { user, profile, signIn, signUp, refreshProfile, resolvedRole, loading: authLoading, dashboardPath } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -248,6 +248,19 @@ export default function AuthPage() {
   useEffect(() => {
     setActiveTab(getResolvedTab());
   }, [location.pathname, searchParams]);
+
+  // Already signed in → return to the requested page, otherwise the role dashboard
+  useEffect(() => {
+    if (!user || authLoading) return;
+    // Never default to buyer while role is still unknown
+    if (!resolvedRole) return;
+    const customRedirect = searchParams.get('redirect') || searchParams.get('returnUrl');
+    if (customRedirect && customRedirect.startsWith('/') && !customRedirect.startsWith('//')) {
+      navigate(customRedirect, { replace: true });
+      return;
+    }
+    navigate(dashboardPath, { replace: true });
+  }, [user, authLoading, resolvedRole, dashboardPath, navigate, searchParams]);
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
@@ -301,14 +314,15 @@ export default function AuthPage() {
   const [policyOpen, setPolicyOpen] = useState(false);
   const [policyTab, setPolicyTab] = useState<'terms' | 'privacy'>('terms');
 
-  const getTargetRedirect = (role?: string) => {
+  const getTargetRedirect = (role?: string | null) => {
     const customRedirect = searchParams.get('redirect') || searchParams.get('returnUrl');
     if (customRedirect && customRedirect.startsWith('/') && !customRedirect.startsWith('//')) {
       return customRedirect;
     }
     if (role === 'admin') return '/dashboard/admin';
     if (role === 'supplier') return '/dashboard/supplier';
-    return '/dashboard/buyer';
+    if (role === 'buyer') return '/dashboard/buyer';
+    return dashboardPath !== '/auth' ? dashboardPath : '/dashboard/buyer';
   };
 
   const doLogin = async (email: string, pw: string) => {
@@ -328,8 +342,10 @@ export default function AuthPage() {
         navigate('/');
         return;
       }
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
-      navigate(getTargetRedirect(profile?.role));
+      await refreshProfile(currentUser.id);
+      const { data: roleRow } = await supabase.from('profiles').select('role').eq('id', currentUser.id).maybeSingle();
+      const metaRole = (currentUser.user_metadata?.role as string | undefined) || null;
+      navigate(getTargetRedirect(roleRow?.role || metaRole));
     } catch (err: any) {
       const msg = err?.message || 'Login failed. Please check your credentials and try again.';
       setError(msg);
@@ -414,7 +430,7 @@ export default function AuthPage() {
         try {
           await supabase.from('buyer_profiles').upsert({
             user_id: activeUser.id,
-            company_name: buyerData.companyName?.trim() || null,
+            company_name: buyerData.companyName?.trim() || cleanName || 'Buyer',
             city: buyerData.city?.trim() || null,
             country: buyerData.country,
           });
@@ -562,13 +578,6 @@ export default function AuthPage() {
     }
   };
 
-  const autofillDemoAccount = (email: string, pw: string) => {
-    setLoginEmail(email);
-    setLoginPw(pw);
-    setError('');
-    toast.info(`Autofilled ${email}. Click "Sign In" to proceed.`);
-  };
-
   return (
     <div className="min-h-screen flex">
       <PageMeta
@@ -589,27 +598,6 @@ export default function AuthPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'login' | 'buyer' | 'supplier')}>
-            {user && (
-              <div className="mb-4 p-3.5 bg-primary/10 border border-primary/25 rounded-xl flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Active Account</p>
-                  <p className="font-bold text-foreground truncate">{profile?.full_name || user.email} <span className="capitalize text-primary font-semibold">({profile?.role || 'user'})</span></p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await signOut();
-                    setError('');
-                    toast.info('Signed out. You can now register or sign in with a different account.');
-                  }}
-                  className="h-8 text-xs font-semibold border-primary/40 text-primary hover:bg-primary/15 shrink-0"
-                >
-                  Sign Out
-                </Button>
-              </div>
-            )}
             <TabsList className="w-full bg-muted border border-border mb-6 grid grid-cols-3">
               <TabsTrigger value="login" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Login</TabsTrigger>
               <TabsTrigger value="buyer" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Buyer</TabsTrigger>
@@ -684,50 +672,6 @@ export default function AuthPage() {
                 <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold">
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
-
-                {/* Quick test accounts helper */}
-                <div className="mt-4 pt-3 border-t border-border/60">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Quick Demo Accounts (1-Click Sign In)
-                    </p>
-                    <span className="text-[10px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">
-                      Verified Credentials
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => doLogin('admin@bulkskart.com', 'AdminBulkSkart2026!#Safe')}
-                      className="text-[11px] p-2 bg-muted/80 hover:bg-primary hover:text-white border border-border rounded-lg text-foreground font-semibold text-center transition-all shadow-xs flex flex-col items-center gap-0.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <span className="text-base">🛡️</span>
-                      <span className="font-bold">Admin</span>
-                      <span className="text-[9px] opacity-80 font-normal">Control Panel</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => doLogin('buyer@bulkskart.com', 'BuyerBulkSkart2026!#')}
-                      className="text-[11px] p-2 bg-muted/80 hover:bg-primary hover:text-white border border-border rounded-lg text-foreground font-semibold text-center transition-all shadow-xs flex flex-col items-center gap-0.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <span className="text-base">💼</span>
-                      <span className="font-bold">Buyer</span>
-                      <span className="text-[9px] opacity-80 font-normal">Post RFQs</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => doLogin('supplier@bulkskart.com', 'SupplierBulkSkart2026!#')}
-                      className="text-[11px] p-2 bg-muted/80 hover:bg-primary hover:text-white border border-border rounded-lg text-foreground font-semibold text-center transition-all shadow-xs flex flex-col items-center gap-0.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <span className="text-base">🏭</span>
-                      <span className="font-bold">Supplier</span>
-                      <span className="text-[9px] opacity-80 font-normal">Quotes & Products</span>
-                    </button>
-                  </div>
-                </div>
 
                 <p className="text-xs text-center text-muted-foreground">
                   Don't have an account?{' '}

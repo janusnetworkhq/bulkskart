@@ -42,6 +42,8 @@ const GENERIC_PLACEHOLDERS = [
   'placeholder',
   'via.placeholder.com',
   'default-product',
+  'ewnftvshvsrhawluloty.supabase.co',
+  '/product-images/representative/',
 ];
 
 export function isGenericImage(url?: string | null): boolean {
@@ -636,44 +638,44 @@ export function resolveRfqImage(
 // 2. COMPANY BRANDING & LOGOS (Distinct corporate identity)
 // ---------------------------------------------------------------------------
 
-// Curated pool of 36 distinct Pixabay industrial facility & plant photography
+// Curated pool of distinct Unsplash industrial facility photos (Pixabay CDN returns 403 when hotlinked)
 export const DISTINCT_PIXABAY_COMPANY_IMAGES: string[] = [
   'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80', // 0: Welding steel fabrication
-  'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80', // 1: Corrugated packaging logistics
-  'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80', // 2: Electrical wiring & transformers
+  'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80', // 1: Packaging logistics warehouse
+  'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=800&q=80', // 2: Power grid & electrical
   'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80', // 3: Chemical synthesis lab
-  'https://cdn.pixabay.com/photo/2017/04/02/09/08/bulldozer-2195329_1280.jpg', // 4: Heavy machinery earthmoving
-  'https://cdn.pixabay.com/photo/2017/12/28/22/03/lens-3046269_1280.jpg', // 5: Precision optics manufacturing
-  'https://cdn.pixabay.com/photo/2017/10/04/21/01/turbine-engine-2817617_1280.jpg', // 6: Gas turbine & petrochemicals
-  'https://cdn.pixabay.com/photo/2020/10/03/09/05/solar-energy-5622969_1280.jpg', // 7: Solar battery & green energy
-  'https://cdn.pixabay.com/photo/2016/09/12/07/48/mechanical-1663275_1280.jpg', // 8: CNC robotics automation
-  'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', // 9: Agro grains & cereals milling
-  'https://cdn.pixabay.com/photo/2019/03/25/04/43/weaving-4079366_1280.jpg', // 10: Textile loom & yarn weaving
-  'https://cdn.pixabay.com/photo/2017/03/27/14/56/auto-2179220_1280.jpg', // 11: Automotive castings & steel alloys
-  'https://cdn.pixabay.com/photo/2014/09/13/21/46/milling-444493_1280.jpg', // 12: Heavy milling lathe & toolmaking
-  'https://cdn.pixabay.com/photo/2015/11/25/11/07/plastic-1061731_1280.jpg', // 13: Polymers & plastic raw pellets
-  'https://cdn.pixabay.com/photo/2014/04/05/11/07/cardboard-314504_1280.jpg', // 14: Kraft paper & shipping cartons
-  'https://cdn.pixabay.com/photo/2014/09/02/12/47/pipe-433609_1280.jpg', // 15: Industrial HDPE & PVC piping
-  'https://cdn.pixabay.com/photo/2020/07/03/23/56/capacitors-5367873_1280.jpg', // 16: Printed circuits & microelectronics
-  'https://cdn.pixabay.com/photo/2021/02/03/03/22/chemistry-5976465_1280.jpg', // 17: Specialty chemical refining
-  'https://cdn.pixabay.com/photo/2017/08/25/23/29/wire-2681887_1280.jpg', // 18: High voltage copper winding
-  'https://cdn.pixabay.com/photo/2017/10/25/17/36/cans-2888650_1280.jpg', // 19: Aluminum beverage & metal canning
-  'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=800&q=80', // 20: Cleanroom wafer fabrication
-  'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80', // 21: Container port maritime terminal
-  'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80', // 22: Automotive robotic assembly plant
-  'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80', // 23: Steel ball bearings & bushings
-  'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=80', // 24: Dyed yarn spools & knitwear
-  'https://cdn.pixabay.com/photo/2016/11/19/11/33/footwear-1838767_1280.jpg', // 25: Industrial footwear & leather
-  'https://cdn.pixabay.com/photo/2015/08/25/03/50/basil-906137_1280.jpg', // 26: Organic spice extraction plant
-  'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80', // 27: Pharmaceutical production line
-  'https://cdn.pixabay.com/photo/2018/08/14/13/23/ocean-3605547_1280.jpg', // 28: Bulk dry cargo shipping vessel
-  'https://cdn.pixabay.com/photo/2017/01/05/10/38/auto-repair-1954636_1280.jpg', // 29: Hydraulic systems & pumps
-  'https://cdn.pixabay.com/photo/2017/04/11/16/12/leather-2222053_1280.jpg', // 30: Tannery leather hide processing
-  'https://cdn.pixabay.com/photo/2020/11/13/21/09/excavator-5739966_1280.jpg', // 31: Quarry mining & building stone
-  'https://cdn.pixabay.com/photo/2017/06/05/20/51/food-truck-2375246_1280.jpg', // 32: Stainless steel catering machinery
-  'https://cdn.pixabay.com/photo/2016/07/12/11/45/towels-1511875_1280.jpg', // 33: Terry towel & home textiles
-  'https://cdn.pixabay.com/photo/2018/03/10/09/45/businessman-3213659_1280.jpg', // 34: Global trade auditing center
-  'https://cdn.pixabay.com/photo/2017/09/07/08/54/money-2724241_1280.jpg', // 35: International customs clearance
+  'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=800&q=80', // 4: Heavy construction / timber site
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80', // 5: Precision optics / camera lens
+  'https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=800&q=80', // 6: Petrochemical plant
+  'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80', // 7: Solar energy farm
+  'https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?auto=format&fit=crop&w=800&q=80', // 8: CNC / automation floor
+  'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80', // 9: Agro grains & farming
+  'https://images.unsplash.com/photo-1558611848-73f7eb4001a1?auto=format&fit=crop&w=800&q=80', // 10: Textile yarn / weaving
+  'https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&w=800&q=80', // 11: Automotive / steel plant
+  'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80', // 12: Precision machining
+  'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?auto=format&fit=crop&w=800&q=80', // 13: Polymers / recycled plastics
+  'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=800&q=80', // 14: Cartons & packaging line
+  'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=800&q=80', // 15: Industrial piping / metalwork
+  'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=80', // 16: Electronics / cleanroom tech
+  'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&w=800&q=80', // 17: Specialty chemicals
+  'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80', // 18: Electrical copper wiring
+  'https://images.unsplash.com/photo-1565043666747-69f6646db940?auto=format&fit=crop&w=800&q=80', // 19: Metal fabrication floor
+  'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=800&q=80', // 20: Cleanroom / wafer tooling
+  'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&w=800&q=80', // 21: Container port terminal
+  'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=800&q=80', // 22: Robotic assembly plant
+  'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=800&q=80', // 23: Industrial bearings / tooling
+  'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?auto=format&fit=crop&w=800&q=80', // 24: Textile dyeing / knitwear
+  'https://images.unsplash.com/photo-1595113316349-9fa4eb24f884?auto=format&fit=crop&w=800&q=80', // 25: Footwear / leather goods
+  'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80', // 26: Timber / softwood forest
+  'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80', // 27: Pharma / medical production
+  'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80', // 28: Bulk cargo shipping
+  'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=800&q=80', // 29: Hydraulic / auto systems
+  'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80', // 30: Construction materials
+  'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=800&q=80', // 31: Mining / heavy excavator
+  'https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80', // 32: Catering / food processing
+  'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800&q=80', // 33: Home textiles / fabrics
+  'https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=800&q=80', // 34: Wind / renewable energy
+  'https://images.unsplash.com/photo-1586528116493-a029325540fa?auto=format&fit=crop&w=800&q=80', // 35: Customs / logistics hub
 ];
 
 // Curated authentic manufacturing facility & factory cover banners (by industrial hub)

@@ -34,6 +34,7 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   '/how-it-works':      () => import('@/pages/HowItWorksPage'),
   '/pricing':           () => import('@/pages/PricingPage'),
   '/contact':           () => import('@/pages/ContactPage'),
+  '/loan-calculator':   () => import('@/pages/LoanCalculatorPage'),
   '/auth':              () => import('@/pages/AuthPage'),
 };
 

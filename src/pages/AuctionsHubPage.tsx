@@ -13,6 +13,12 @@ import SafeImage from '@/components/common/SafeImage';
 import { supabase } from '@/db/supabase';
 import { toast } from 'sonner';
 import CreateReverseAuctionDialog from '@/components/auctions/CreateReverseAuctionDialog';
+import {
+  getSimulatedAuctions,
+  mergeWithSimulatedAuctions,
+  type SimulatedAuctionItem,
+} from '@/data/simulatedLiveAuctions';
+import { assignDistinctAuctionImages, resolveAuctionImage } from '@/lib/auctionImageResolver';
 
 interface AuctionItem {
   id: string;
@@ -34,6 +40,18 @@ interface AuctionItem {
   delivery_location: string;
   images?: string[];
   manufacturer_name?: string;
+  is_simulated?: true;
+}
+
+function applyTimers(list: AuctionItem[]): Record<string, number> {
+  const now = Date.now();
+  const timers: Record<string, number> = {};
+  list.forEach((a) => {
+    timers[a.id] = a.end_time
+      ? Math.max(0, Math.floor((new Date(a.end_time).getTime() - now) / 1000))
+      : 0;
+  });
+  return timers;
 }
 
 export default function AuctionsHubPage() {
@@ -51,6 +69,16 @@ export default function AuctionsHubPage() {
 
   useEffect(() => {
     let isMounted = true;
+
+    function seedSimBoard() {
+      const sims = assignDistinctAuctionImages(getSimulatedAuctions() as AuctionItem[]) as AuctionItem[];
+      setAllAuctions(sims);
+      setTimeRemainings(applyTimers(sims));
+    }
+
+    // Instant presence while DB loads
+    seedSimBoard();
+
     async function loadDbAuctions() {
       try {
         const { data, error } = await supabase
@@ -58,8 +86,15 @@ export default function AuctionsHubPage() {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0 && isMounted) {
-          const mapped: AuctionItem[] = data.map((d: any) => ({
+        if (!isMounted) return;
+
+        const mapped: AuctionItem[] = (!error && data ? data : []).map((d: any) => {
+          const img = resolveAuctionImage({
+            id: d.id,
+            title: d.title || '',
+            existing: d.images,
+          });
+          return {
             id: d.id,
             auction_number: d.auction_number,
             auction_type: d.auction_type === 'forward' ? 'forward' : 'reverse',
@@ -76,35 +111,39 @@ export default function AuctionsHubPage() {
             end_time: d.end_time || '',
             status: d.status || 'live',
             delivery_location: d.delivery_location || 'Pan-India',
-            images: d.images?.length ? d.images : undefined,
-            manufacturer_name: 'Verified Manufacturer'
-          }));
+            images: [img],
+            manufacturer_name: 'Verified Manufacturer',
+          };
+        });
 
-          const initialTimers: Record<string, number> = {};
-          mapped.forEach(a => {
-            if (a.end_time) {
-              const rem = Math.max(0, Math.floor((new Date(a.end_time).getTime() - Date.now()) / 1000));
-              initialTimers[a.id] = rem;
-            } else {
-              initialTimers[a.id] = 0;
-            }
-          });
-
-          setTimeRemainings(initialTimers);
-          setAllAuctions(mapped);
-        } else if (isMounted) {
-          setAllAuctions([]);
-          setTimeRemainings({});
-        }
-      } catch (err) {
-        if (isMounted) {
-          setAllAuctions([]);
-          setTimeRemainings({});
-        }
+        const merged = assignDistinctAuctionImages(
+          mergeWithSimulatedAuctions(mapped) as AuctionItem[]
+        ) as AuctionItem[];
+        setAllAuctions(merged);
+        setTimeRemainings(applyTimers(merged));
+      } catch {
+        if (isMounted) seedSimBoard();
       }
     }
+
     loadDbAuctions();
-    return () => { isMounted = false; };
+
+    // Refresh simulated bids / rolling end times every 8s without hitting the DB
+    const activity = setInterval(() => {
+      if (!isMounted) return;
+      setAllAuctions((prev) => {
+        const real = prev.filter((a) => !a.is_simulated);
+        const sims = getSimulatedAuctions() as AuctionItem[];
+        const next = [...real, ...sims];
+        setTimeRemainings(applyTimers(next));
+        return next;
+      });
+    }, 8000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(activity);
+    };
   }, []);
 
   // Update live countdown timers every second
@@ -112,7 +151,7 @@ export default function AuctionsHubPage() {
     const updateTimers = () => {
       const now = Date.now();
       const updated: Record<string, number> = {};
-      allAuctions.forEach(auc => {
+      allAuctions.forEach((auc) => {
         const diff = Math.max(0, Math.floor((new Date(auc.end_time).getTime() - now) / 1000));
         updated[auc.id] = diff;
       });
@@ -333,13 +372,16 @@ export default function AuctionsHubPage() {
                   {/* Top Image Banner */}
                   <div className="relative h-48 bg-muted overflow-hidden">
                     <SafeImage
-                      src={auc.images?.[0] || 'https://images.unsplash.com/photo-1544724569-5f546fd6f2b5?auto=format&fit=crop&q=80&w=800'}
+                      src={
+                        auc.images?.[0] ||
+                        resolveAuctionImage({ id: auc.id, title: auc.title })
+                      }
                       alt={auc.title}
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                     />
                     
                     {/* Status Pill & Auction ID */}
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
                       {isSold ? (
                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white flex items-center gap-1 shadow-md">
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -349,6 +391,11 @@ export default function AuctionsHubPage() {
                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-red-600 text-white flex items-center gap-1 shadow-md">
                           <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                           LIVE 60-MIN
+                        </span>
+                      )}
+                      {(auc as AuctionItem | SimulatedAuctionItem).is_simulated && (
+                        <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-700/90 text-slate-200 backdrop-blur-sm">
+                          SAMPLE
                         </span>
                       )}
                       <span className="px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-black/75 text-white backdrop-blur-sm">

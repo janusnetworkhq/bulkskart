@@ -94,6 +94,9 @@ Allow: /how-it-works
 Allow: /contact
 Allow: /about
 Allow: /blog
+Allow: /categories
+Allow: /categories/*
+Allow: /auctions
 Allow: /shipping-calculator
 Allow: /trade-assistant
 Allow: /post-requirement
@@ -115,6 +118,8 @@ Disallow: /messages
 Disallow: /chat
 Disallow: /orders
 Disallow: /wallet
+Disallow: /business-setup
+Disallow: /onboarding
 
 # Block query parameters that cause duplicate or thin content
 Disallow: /*?*sort=

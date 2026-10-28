@@ -17,7 +17,7 @@ type BuyerStats = {
 };
 
 export default function BuyerDashboard() {
-  const { user, profile, buyerProfile } = useAuth();
+  const { user, profile, buyerProfile, resolvedRole, displayName, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,11 +27,20 @@ export default function BuyerDashboard() {
     unreadNotifs: 0, openDisputes: 0, buyerVerified: false,
   });
 
+  // Suppliers who land here by race/stale link get sent to the supplier dashboard
+  useEffect(() => {
+    if (authLoading) return;
+    if (resolvedRole === 'supplier') navigate('/dashboard/supplier', { replace: true });
+    if (resolvedRole === 'admin') navigate('/dashboard/admin', { replace: true });
+  }, [authLoading, resolvedRole, navigate]);
+
   useEffect(() => {
     if (!user) return;
+    if (resolvedRole && resolvedRole !== 'buyer') return;
+    let cancelled = false;
     setLoading(true);
     Promise.all([
-      getRequirements({ buyerId: user.id }),
+      getRequirements({ buyerId: user.id }).catch(() => [] as Requirement[]),
       supabase.from('quotations').select('id', { count: 'exact', head: true }).eq('buyer_id', user.id),
       supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('buyer_id', user.id),
       supabase.from('orders').select('id', { count: 'exact', head: true }).eq('buyer_id', user.id).in('milestone', ['order_processing','production','ready_for_dispatch','dispatched']),
@@ -40,22 +49,32 @@ export default function BuyerDashboard() {
       supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
       supabase.from('disputes').select('id', { count: 'exact', head: true }).eq('raised_by', user.id).eq('status', 'open'),
       supabase.from('buyer_profiles').select('verification_status').eq('user_id', user.id).maybeSingle(),
-    ]).then(([reqs, quotRes, convRes, activeOrdRes, completedOrdRes, savedRes, notifRes, dispRes, verRes]) => {
-      setRequirements(reqs);
-      setStats({
-        totalReqs: reqs.length,
-        totalQuotes: quotRes.count ?? 0,
-        activeConvs: convRes.count ?? 0,
-        activeOrders: activeOrdRes.count ?? 0,
-        completedOrders: completedOrdRes.count ?? 0,
-        savedMfrs: savedRes.count ?? 0,
-        unreadNotifs: notifRes.count ?? 0,
-        openDisputes: dispRes.count ?? 0,
-        buyerVerified: (verRes.data as { verification_status?: string } | null)?.verification_status === 'verified',
+    ])
+      .then(([reqs, quotRes, convRes, activeOrdRes, completedOrdRes, savedRes, notifRes, dispRes, verRes]) => {
+        if (cancelled) return;
+        setRequirements(Array.isArray(reqs) ? reqs : []);
+        setStats({
+          totalReqs: Array.isArray(reqs) ? reqs.length : 0,
+          totalQuotes: quotRes.count ?? 0,
+          activeConvs: convRes.count ?? 0,
+          activeOrders: activeOrdRes.count ?? 0,
+          completedOrders: completedOrdRes.count ?? 0,
+          savedMfrs: savedRes.count ?? 0,
+          unreadNotifs: notifRes.count ?? 0,
+          openDisputes: dispRes.count ?? 0,
+          buyerVerified: (verRes.data as { verification_status?: string } | null)?.verification_status === 'verified',
+        });
+      })
+      .catch((err) => {
+        console.warn('Buyer dashboard stats failed:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      setLoading(false);
-    });
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, resolvedRole]);
 
   const statsCards = [
     { label: 'Requirements Posted', value: stats.totalReqs, icon: FileText, color: 'text-primary', to: '/dashboard/buyer/requirements' },
@@ -78,7 +97,7 @@ export default function BuyerDashboard() {
           {/* Header */}
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div>
-              <h1 className="text-base md:text-xl font-bold text-foreground">Welcome back, {profile?.full_name?.split(' ')[0] ?? 'Buyer'}</h1>
+              <h1 className="text-base md:text-xl font-bold text-foreground">Welcome back, {displayName.split(' ')[0] || profile?.full_name?.split(' ')[0] || 'Buyer'}</h1>
               <p className="text-xs md:text-sm text-muted-foreground">Manage your bulk requirements and received quotes</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

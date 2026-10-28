@@ -626,7 +626,7 @@ export default function LiveRequirementsFeed() {
                       {/* Left Product Thumbnail */}
                       <div
                         onClick={() => handleViewRFQ(req)}
-                        className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-xl overflow-hidden shrink-0 bg-muted border border-border relative cursor-pointer aspect-square shadow-sm"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 bg-muted border border-border relative cursor-pointer aspect-square shadow-sm"
                       >
                         <SafeImage
                           src={visual.image}
@@ -745,7 +745,7 @@ export default function LiveRequirementsFeed() {
                       onClick={() => handleOpenRespond(req)}
                       className="w-full bg-[#FF5A00] hover:bg-[#e04f00] text-white font-bold text-[11px] sm:text-xs h-8 rounded-lg shadow-sm gap-1 transition-all px-1"
                     >
-                      <span className="truncate">Send Quote</span>
+                      <span className="truncate">Contact Buyer</span>
                       <ArrowRight className="w-3 h-3 shrink-0" />
                     </Button>
                   </div>

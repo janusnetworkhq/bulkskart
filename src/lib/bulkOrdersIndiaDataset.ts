@@ -447,6 +447,15 @@ export function getIndianBulkOrder(index: number, categoryFilter: string = 'All 
 /**
  * Returns a randomized or offset order from the 100,000 dataset
  */
+/** Index encoded in RFQ-IND-100000 style order numbers, or null if the code is not one of these leads. */
+export function indexFromIndianOrderNumber(orderNumber: string): number | null {
+  const match = orderNumber.trim().toUpperCase().match(/^RFQ-IND-(\d+)$/);
+  if (!match) return null;
+  const index = Number(match[1]) - 100000;
+  if (!Number.isInteger(index) || index < 0 || index >= TOTAL_INDIAN_BULK_ORDERS) return null;
+  return index;
+}
+
 export function getRandomIndianBulkOrder(categoryFilter: string = 'All Categories'): IndianBulkOrderAlert {
   const randIndex = Math.floor(Math.random() * TOTAL_INDIAN_BULK_ORDERS);
   return getIndianBulkOrder(randIndex, categoryFilter);

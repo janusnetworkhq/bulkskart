@@ -6,8 +6,10 @@ interface VersionPayload {
   gitCommit?: string;
 }
 
-// Current loaded app version injected at runtime or fetched on startup
-const CURRENT_APP_VERSION = '1.0.1';
+// Baked at build — must change on every deploy (also written to /version.json)
+import bakedVersion from '@/version.json';
+
+const CURRENT_APP_VERSION = `${bakedVersion.version}|${bakedVersion.buildTime}`;
 
 export default function VersionCheckSafetyNet() {
   const currentVersionRef = useRef<string | null>(CURRENT_APP_VERSION);
@@ -33,11 +35,11 @@ export default function VersionCheckSafetyNet() {
       }
 
       const data: VersionPayload = await response.json();
-      const serverVersion = data.version || data.buildTime;
+      const serverVersion = `${data.version || ''}|${data.buildTime || ''}`;
 
       if (!currentVersionRef.current) {
         currentVersionRef.current = serverVersion;
-      } else if (serverVersion && serverVersion !== currentVersionRef.current) {
+      } else if (serverVersion && serverVersion !== '|' && serverVersion !== currentVersionRef.current) {
         console.warn(`[BulkSkart VersionCheck] New version detected: ${serverVersion} (current: ${currentVersionRef.current}). Reloading page...`);
         // Clean up service workers and caches before hard reloading
         if ('serviceWorker' in navigator) {

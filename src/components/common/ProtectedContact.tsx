@@ -11,6 +11,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { getUniqueLeadContact } from '@/lib/uniqueLeadContact';
 
 interface ProtectedContactProps {
   /** Phone number to protect (buyer contact, bidder phone, etc.) */
@@ -31,6 +32,16 @@ interface ProtectedContactProps {
   className?: string;
   /** Is the current viewing user the post owner (creator of the auction / RFQ)? */
   isPostOwner?: boolean;
+  /**
+   * When true, any paid supplier (manufacturer) can unlock this contact —
+   * used on RFQ Leads where the supplier is matching buyer requirements (not the post owner).
+   */
+  allowPaidSupplierUnlock?: boolean;
+  /**
+   * Stable ID (requirement / auction / lead id) so each locked card gets a unique
+   * country code + masked phone when the real number is hidden or missing.
+   */
+  seed?: string | null;
 }
 
 export default function ProtectedContact({
@@ -42,27 +53,35 @@ export default function ProtectedContact({
   showActions = true,
   variant = 'inline',
   className = '',
-  isPostOwner = false
+  isPostOwner = false,
+  allowPaidSupplierUnlock = false,
+  seed = null,
 }: ProtectedContactProps) {
   const { user, profile, isPaidSubscriber } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [nonOwnerModalOpen, setNonOwnerModalOpen] = useState(false);
 
-  const rawPhone = phone || '+91 98201 44892';
-  const cleanDigits = rawPhone.replace(/\D/g, '');
-  
-  // Format masked display: +91 98•••• ••••
-  const maskedDisplay = rawPhone.startsWith('+')
-    ? `${rawPhone.slice(0, 7)}•••• ••••`
-    : `+91 98•••• ••••`;
+  const unique = getUniqueLeadContact({
+    seed: seed || phone || name || email || country || 'contact',
+    country,
+    phone,
+  });
 
-  // Strict Dual-Condition Access Control:
-  // 1. Phone number is hidden and never displayed openly.
-  // 2. ONLY the post owner who has an active paid subscription can see the number.
-  // 3. If viewer is NOT the post owner, phone number cannot be viewed under any condition.
-  // 4. If viewer IS the post owner but hasn't paid, they are prompted to subscribe.
-  const isGuest = !user;
-  const canView = Boolean(isPostOwner && isPaidSubscriber);
+  const rawPhone = (phone && String(phone).trim()) || unique.phone;
+  const cleanDigits = unique.e164Digits || rawPhone.replace(/\D/g, '');
+  const displayPhone = (phone && String(phone).trim()) || unique.phone;
+
+  // Unique per-card mask (dial code + prefix vary by seed / country)
+  const maskedDisplay = unique.maskedPhone;
+
+  // Access:
+  // - Post owner with paid sub can always unlock
+  // - Paid suppliers can unlock RFQ buyer contacts when allowPaidSupplierUnlock
+  // - Unpaid manufacturers see subscribe CTA
+  const isSupplier = profile?.role === 'supplier' || profile?.role === 'admin';
+  const canUnlockAsPaidSupplier = Boolean(allowPaidSupplierUnlock && isSupplier && isPaidSubscriber);
+  const canView = Boolean((isPostOwner && isPaidSubscriber) || canUnlockAsPaidSupplier);
+  const showSubscribeCta = Boolean(isPostOwner || (allowPaidSupplierUnlock && isSupplier));
 
   const contactLabel = contactType === 'bidder' 
     ? 'Bidding Contact Number' 
@@ -80,9 +99,9 @@ export default function ProtectedContact({
             href={`tel:${cleanDigits}`}
             className="font-mono font-bold text-foreground hover:text-primary transition-colors"
           >
-            {rawPhone}
+            {displayPhone}
           </a>
-          {showActions && (
+          {showActions && cleanDigits.length >= 10 && (
             <div className="flex items-center gap-1.5 ml-1">
               <a
                 href={`https://wa.me/${cleanDigits}`}
@@ -106,12 +125,12 @@ export default function ProtectedContact({
               <Phone className="w-3.5 h-3.5 text-primary" /> {contactLabel}
             </span>
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-              Unlocked (Post Owner Access)
+              Unlocked
             </span>
           </div>
           <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-            <div className="font-mono font-extrabold text-sm text-foreground">{rawPhone}</div>
-            {showActions && (
+            <div className="font-mono font-extrabold text-sm text-foreground">{displayPhone}</div>
+            {showActions && cleanDigits.length >= 10 && (
               <div className="flex items-center gap-2">
                 <a
                   href={`tel:${cleanDigits}`}
@@ -142,9 +161,9 @@ export default function ProtectedContact({
           href={`tel:${cleanDigits}`}
           className="font-mono font-bold text-foreground hover:text-primary transition-colors"
         >
-          {rawPhone}
+          {displayPhone}
         </a>
-        {showActions && (
+        {showActions && cleanDigits.length >= 10 && (
           <a
             href={`https://wa.me/${cleanDigits}`}
             target="_blank"
@@ -158,7 +177,7 @@ export default function ProtectedContact({
     );
   }
 
-  // ── 2. Locked View: Non-Owner or Unpaid Post Owner ─────────────────
+  // ── 2. Locked View: Unpaid supplier / non-owner ─────────────────
   return (
     <>
       {variant === 'card' ? (
@@ -168,14 +187,14 @@ export default function ProtectedContact({
               <Lock className="w-3.5 h-3.5 text-[#FF5A1F]" /> {contactLabel}
             </span>
             <span className="text-[10px] font-bold text-[#FF5A1F] bg-[#FF5A1F]/10 border border-[#FF5A1F]/30 px-2 py-0.5 rounded-full">
-              {isPostOwner ? '🔒 Unpaid (Post Owner)' : '🔒 Confidential (Post Owner Only)'}
+              {showSubscribeCta ? '🔒 Subscribe to Unlock' : '🔒 Protected'}
             </span>
           </div>
           <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
             <span className="font-mono font-bold text-muted-foreground tracking-wider select-none">
               {maskedDisplay}
             </span>
-            {isPostOwner ? (
+            {showSubscribeCta ? (
               <button
                 type="button"
                 onClick={() => setModalOpen(true)}
@@ -189,7 +208,7 @@ export default function ProtectedContact({
                 onClick={() => setNonOwnerModalOpen(true)}
                 className="px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground text-xs font-medium flex items-center gap-1.5 border border-border transition-all cursor-pointer"
               >
-                <Lock className="w-3 h-3 text-muted-foreground" /> Post Owner Only
+                <Lock className="w-3 h-3 text-muted-foreground" /> Protected
               </button>
             )}
           </div>
@@ -200,7 +219,7 @@ export default function ProtectedContact({
           <span className="font-mono text-muted-foreground tracking-wider select-none">
             {maskedDisplay}
           </span>
-          {isPostOwner ? (
+          {showSubscribeCta ? (
             <button
               type="button"
               onClick={() => setModalOpen(true)}
@@ -222,7 +241,7 @@ export default function ProtectedContact({
         </span>
       )}
 
-      {/* Subscription Upgrade Modal (for Post Owner) */}
+      {/* Subscription Upgrade Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-[calc(100%-2rem)] md:max-w-md p-6 rounded-3xl border border-border">
           <DialogHeader className="space-y-2 text-left">
@@ -230,10 +249,10 @@ export default function ProtectedContact({
               <Lock className="w-6 h-6" />
             </div>
             <DialogTitle className="text-lg font-bold text-foreground">
-              Unlock Contact Details (Post Owner)
+              Unlock Buyer Contact Details
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
-              As the post owner, activate your paid subscription to view unmasked buyer and bidding participant contact phone numbers and initiate direct negotiations.
+              Activate your manufacturer subscription to view unmasked buyer phone numbers and start direct negotiations on RFQ leads.
             </DialogDescription>
           </DialogHeader>
 

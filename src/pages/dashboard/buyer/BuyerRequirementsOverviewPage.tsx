@@ -54,12 +54,26 @@ export default function BuyerRequirementsOverviewPage() {
   const [instantQuoteProduct, setInstantQuoteProduct] = useState<{ id: string; name: string; supplierCompanyId: string; supplierName: string } | null>(null);
 
   const fetchAll = () => {
-    if (!user) return;
-    setLoading(true);
-    getRequirements({ buyerId: user.id, status: undefined }).then(data => {
-      setRequirements(data);
+    if (!user) {
+      setRequirements([]);
       setLoading(false);
-    });
+      return;
+    }
+    setLoading(true);
+    const timeout = new Promise<Requirement[]>((resolve) => setTimeout(() => resolve([]), 12000));
+    Promise.race([
+      getRequirements({ buyerId: user.id, status: 'all' }),
+      timeout,
+    ])
+      .then((data) => {
+        setRequirements(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.warn('Failed to load requirements:', err);
+        setRequirements([]);
+        toast.error('Could not load requirements. Please refresh.');
+      })
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchAll(); }, [user]);

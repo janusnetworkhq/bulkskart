@@ -3,37 +3,37 @@
   <!-- Core Canonical Marketplace Hubs -->
   <url>
     <loc>https://www.bulkskart.com/</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/b2b-marketplace</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/manufacturers</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/wholesale-suppliers</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/bulk-products</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/bulk-suppliers</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.90</priority>
   </url>
@@ -41,31 +41,31 @@
   <!-- Regional Geo-Targeted Sourcing Hubs -->
   <url>
     <loc>https://www.bulkskart.com/manufacturers-in-india</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.90</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/manufacturers-in-tamil-nadu</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.88</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/manufacturers-in-coimbatore</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.88</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/manufacturers-in-chennai</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.88</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/wholesale-suppliers-in-india</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.90</priority>
   </url>
@@ -73,127 +73,133 @@
   <!-- Public Sourcing & RFQ Pages -->
   <url>
     <loc>https://www.bulkskart.com/products</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.90</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/requirements</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.90</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/post-requirement</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/pricing</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/how-it-works</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/auctions</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.85</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/shipping-calculator</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
   <url>
+    <loc>https://www.bulkskart.com/loan-calculator</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.75</priority>
+  </url>
+  <url>
     <loc>https://www.bulkskart.com/trade-assistant</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/blog</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/about</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.65</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/contact</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.65</priority>
   </url>
   <url>
-    <loc>https://www.bulkskart.com/blog</loc>
-    <lastmod>2026-10-07</lastmod>
+    <loc>https://www.bulkskart.com/categories</loc>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/blog/how-to-find-manufacturers-in-india</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/blog/what-is-moq</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/blog/how-to-buy-products-in-bulk</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/blog/manufacturer-vs-wholesaler</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/blog/how-to-post-an-rfq</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/terms</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.40</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/privacy</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.40</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/cookie-policy</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.40</priority>
   </url>
   <url>
     <loc>https://www.bulkskart.com/sitemap</loc>
-    <lastmod>2026-10-07</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.60</priority>
   </url>

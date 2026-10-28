@@ -268,12 +268,6 @@ export default function SupplierAnalyticsPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button asChild size="sm" variant="outline" className="text-xs gap-1.5">
-                <Link to="/dashboard/supplier/credits">
-                  <Coins className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Check Lead Credits</span>
-                </Link>
-              </Button>
               <Button asChild size="sm" className="text-xs gap-1.5 bg-primary text-primary-foreground">
                 <Link to="/dashboard/supplier/subscription">
                   <ShieldCheck className="w-3.5 h-3.5" />

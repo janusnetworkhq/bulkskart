@@ -87,7 +87,11 @@ export function useRazorpay() {
       });
 
       if (error || !data?.order_id) {
-        const msg = error?.message || 'Could not create payment order';
+        const msg =
+          (typeof data?.error === 'string' && data.error) ||
+          (typeof data?.details === 'string' && data.details) ||
+          error?.message ||
+          'Could not create payment order';
         toast.error(msg);
         setLoading(false);
         opts.onError?.(msg);
@@ -193,7 +197,11 @@ export function useRazorpay() {
       });
 
       if (error || !data?.order_id) {
-        const msg = error?.message || 'Failed to initialize promotion order';
+        const msg =
+          (typeof data?.error === 'string' && data.error) ||
+          (typeof data?.details === 'string' && data.details) ||
+          error?.message ||
+          'Failed to initialize promotion order';
         toast.error(msg);
         setLoading(false);
         opts.onError?.(msg);

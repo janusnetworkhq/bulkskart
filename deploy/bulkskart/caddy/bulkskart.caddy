@@ -1,0 +1,27 @@
+# Bulkskart — Origin TLS (matches Aura Cloudflare Full pattern)
+www.bulkskart.com, bulkskart.com {
+	tls /etc/caddy/certs/bulkskart-origin.pem /etc/caddy/certs/bulkskart-origin-key.pem
+	import common_headers
+
+	@supabase path /auth/* /rest/* /storage/* /functions/* /realtime/* /graphql/*
+	handle @supabase {
+		reverse_proxy supabase-envoy:8000 {
+			lb_try_duration 5s
+			transport http {
+				dial_timeout 10s
+				response_header_timeout 120s
+				read_timeout 120s
+				write_timeout 120s
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy bulkskart-web:80 {
+			lb_try_duration 5s
+			health_uri /healthz
+			health_interval 15s
+			health_timeout 3s
+		}
+	}
+}
